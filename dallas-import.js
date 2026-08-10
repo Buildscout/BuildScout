@@ -194,16 +194,38 @@ zip_code: row.zip_code || "",
 
  async function importToSupabase() {
   try {
-    const rows = await fetchPermits();
-    const normalized =
-  rows
-    .filter(isGoodLead)
-    .map(normalize);
+   const rows = await fetchPermits();
 
-    const saved =
-      await window.BuildScoutBackend.importProjects(
-        normalized
-      );
+const normalized = [];
+
+for (const [index, row] of rows.filter(isGoodLead).entries()) {
+  const project = normalize(row, index);
+
+  try {
+    const geo = await geocodeAddress(
+      project.street_address,
+      project.zip_code
+    );
+
+    if (geo) {
+      project.lat = geo.lat;
+      project.lon = geo.lon;
+    }
+  } catch (error) {
+    console.warn(
+      "Geocode failed for",
+      project.street_address,
+      error
+    );
+  }
+
+  normalized.push(project);
+}
+
+const saved =
+  await window.BuildScoutBackend.importProjects(
+    normalized
+  );
 
     console.log(
       "Dallas permits saved to Supabase:",
