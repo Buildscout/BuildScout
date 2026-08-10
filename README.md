@@ -1,27 +1,30 @@
-# BuildScout MVP
+# BuildScout V2
 
-A frontend MVP for a construction intelligence SaaS.
+BuildScout V2 upgrades the original MVP with a real interactive OpenStreetMap/Leaflet map and a permit-data import workflow.
 
-## Run locally
-Open `index.html` in a modern browser.
+## Major upgrades
+- Real street map centered on Dallas–Fort Worth
+- 24 clearly labeled demo project pins
+- CSV and JSON import for real permit/project records
+- Common-column normalization
+- Imported data stored in browser localStorage
+- Project detail modal with permit/source fields
+- Source/verification labels
+- Opportunity score calculation for imported records
+- Saved projects and sales pipeline
+- Data Sources page with official city-source links
+- Mobile responsive layout
 
-## Included
-- DFW construction opportunity map (demo data)
-- Search/filtering
-- Project details
-- Opportunity scores
-- Saved projects
-- Sales pipeline
-- Alerts
-- Admin dashboard
-- Responsive UI
-- Local browser persistence
+## Publish
+Replace the old repository files with the files in this package. Because Vercel is connected to GitHub, a commit to the main branch should trigger a new deployment automatically.
 
-## Next production steps
-1. Add authentication and a real database.
-2. Add municipal/public/licensed data connectors.
-3. Replace demo project data with verified records.
-4. Add Stripe subscriptions.
-5. Add email/SMS notifications.
-6. Add company/contact intelligence from permitted sources.
-7. Add AI outreach and ranking.
+## Important
+The built-in records are demo records. Real records are only treated as imported records after you provide a city/public/licensed export.
+
+## Recommended next backend phase
+- Supabase/Postgres for users/projects/companies/contacts
+- Server-side scheduled ingestion jobs
+- Server-side geocoding for permit exports without coordinates
+- Authentication
+- Stripe
+- Email/SMS alerts

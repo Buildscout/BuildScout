@@ -1,0 +1,2 @@
+name,city,lat,lon,type,stage,value,units,start,permit_number,developer,gc,architect,source,source_url
+Example Project,Fort Worth TX,32.7555,-97.3308,Multifamily,Permit approved,25000000,220,2026-10-01,EXAMPLE-001,Example Developer,Example GC,Example Architect,Official city export,
