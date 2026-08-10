@@ -94,7 +94,65 @@ window.BuildScoutBackend = (() => {
 
     return data || [];
   }
+async function importProjects(projectList) {
+  if (!client) init();
 
+  if (!Array.isArray(projectList) || projectList.length === 0) {
+    return [];
+  }
+
+  const rows = projectList
+    .filter(p => p && p.permit_number)
+    .map(p => ({
+      name: p.name || "Dallas Building Permit",
+      city: p.city || "Dallas, TX",
+      latitude: p.lat ?? null,
+      longitude: p.lon ?? null,
+      project_type: p.type || "Commercial",
+      stage: p.stage || "Permit approved",
+      estimated_value: Number(p.value || 0),
+      units: p.units ?? null,
+      expected_start: null,
+      permit_number: String(p.permit_number),
+      source_name: p.source || "City of Dallas OpenData",
+      source_url:
+        "https://www.dallasopendata.com/Services/Building-Permits/e7gq-4sah",
+      last_verified: new Date().toISOString().slice(0, 10)
+    }));
+
+  const permitNumbers = rows.map(row => row.permit_number);
+
+  const { data: existing, error: lookupError } =
+    await client
+      .from("projects")
+      .select("permit_number")
+      .eq("source_name", "City of Dallas OpenData")
+      .in("permit_number", permitNumbers);
+
+  if (lookupError) throw lookupError;
+
+  const existingNumbers = new Set(
+    (existing || []).map(row => row.permit_number)
+  );
+
+  const newRows = rows.filter(
+    row => !existingNumbers.has(row.permit_number)
+  );
+
+  if (newRows.length === 0) {
+    return [];
+  }
+
+  const { data, error } =
+    await client
+      .from("projects")
+      .insert(newRows)
+      .select();
+
+  if (error) throw error;
+
+  return data || [];
+}
   async function getSavedProjects(userId) {
     if (!client) init();
 
@@ -184,6 +242,7 @@ window.BuildScoutBackend = (() => {
     signOut,
     getSession,
     getProjects,
+    importProjects,
     getSavedProjects,
     saveProject,
     unsaveProject,
