@@ -124,10 +124,47 @@ window.BuildScoutDallasImport = (() => {
       throw error;
     }
   }
+
+ async function importToSupabase() {
+  try {
+    const rows = await fetchPermits();
+    const normalized = rows.map(normalize);
+
+    const saved =
+      await window.BuildScoutBackend.importProjects(
+        normalized
+      );
+
+    console.log(
+      "Dallas permits saved to Supabase:",
+      saved
+    );
+
+    alert(
+      `Success! ${saved.length} new Dallas permits were saved to Supabase.`
+    );
+
+    return saved;
+
+  } catch (error) {
+    console.error(
+      "Dallas Supabase import failed:",
+      error
+    );
+
+    alert(
+      `Dallas import failed: ${error.message}`
+    );
+
+    throw error;
+  }
+} 
+  
   return {
     fetchPermits,
     normalize,
-    preview
+    preview,
+    importToSupabase
   };
 
 })();
