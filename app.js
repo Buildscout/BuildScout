@@ -103,7 +103,7 @@ function renderPage(){
     main.innerHTML=`<div class="pagehead"><div><h1>My Projects</h1><div class="muted">Your active prospect list.</div></div></div><div class="grid">${ps.map(projectCard).join("")||"<div class='panel muted'>No saved projects yet.</div>"}</div>`;
   } else if(page==="pipeline"){renderPipeline(main)}
   else if(page==="alerts"){renderAlerts(main)}
-  else if(page==="data"){renderData(main)}
+  else if(page==="data"){BuildScoutDataSources.render()}
   else if(page==="admin"){renderAdmin(main)}
 }
 function initMap(ps) {
