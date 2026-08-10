@@ -1,5 +1,5 @@
 window.BUILDSCOUT_CONFIG = {
-  appName: "BuildScout",
+  appName: "BuildScout", 
   launchMarket: "Dallas–Fort Worth",
   mapCenter: [44.5, -96.0],
 mapZoom: 4,
