@@ -106,6 +106,8 @@ async function importProjects(projectList) {
     .map(p => ({
       name: p.name || "Dallas Building Permit",
       city: p.city || "Dallas, TX",
+     street_address: p.street_address || null,
+zip_code: p.zip_code || null,
       latitude: p.lat ?? null,
       longitude: p.lon ?? null,
       project_type: p.type || "Commercial",
@@ -113,6 +115,7 @@ async function importProjects(projectList) {
       estimated_value: Number(p.value || 0),
       units: p.units ?? null,
       expected_start: null,
+      general_contractor: p.contractor || null,
       permit_number: String(p.permit_number),
       source_name: p.source || "City of Dallas OpenData",
       source_url:
