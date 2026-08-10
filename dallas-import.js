@@ -108,6 +108,8 @@ window.BuildScoutDallasImport = (() => {
           ? `${description.slice(0, 62)}...`
           : description,
       city: "Dallas, TX",
+      street_address: row.street_address || "",
+zip_code: row.zip_code || "",
       type: classifyType(row),
       stage: "Permit approved",
       value: numberValue(row.value),
