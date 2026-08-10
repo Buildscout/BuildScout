@@ -1,8 +1,8 @@
 window.BUILDSCOUT_CONFIG = {
   appName: "BuildScout",
   launchMarket: "Dallas–Fort Worth",
-  mapCenter: [32.83, -97.05],
-  mapZoom: 9,
+  mapCenter: [44.5, -96.0],
+mapZoom: 4,
    supabaseUrl: "https://fexdofuzoyvymmbtzvje.supabase.co",
   supabasePublishableKey:"sb_publishable_QOtqQZrbX7-RXuYuy7reeg_SFmN8bvc"
 
