@@ -35,29 +35,70 @@ window.BuildScoutDallasImport = (() => {
     return "Commercial";
   }
   function scorePermit(row) {
-    const value = numberValue(row.value);
-    let score = 55;
-    if (value >= 1000000) score += 10;
-    if (value >= 5000000) score += 8;
-    if (value >= 10000000) score += 7;
-    const text =
-      `${row.permit_type || ""} ${row.work_description || ""}`
-        .toLowerCase();
-    if (text.includes("new construction")) {
-      score += 10;
-    }
-    return Math.min(score, 100);
-  }
-  function isGoodLead(row) {
-  const text =
-    `${row.permit_type || ""} ${row.work_description || ""}`
-      .toLowerCase();
-
   const value = numberValue(row.value);
 
+  const text = `
+    ${row.permit_type || ""}
+    ${row.work_description || ""}
+    ${row.land_use || ""}
+  `.toLowerCase();
+
+  let score = 35;
+
+  const majorTerms = [
+    "new construction",
+    "new building",
+    "multifamily",
+    "multi family",
+    "apartment",
+    "mixed use",
+    "mixed-use",
+    "warehouse",
+    "industrial",
+    "distribution",
+    "hotel",
+    "office building",
+    "retail shell",
+    "commercial building"
+  ];
+
+  if (majorTerms.some(term => text.includes(term))) {
+    score += 25;
+  }
+
+  const renovationTerms = [
+    "addition",
+    "renovation",
+    "remodel",
+    "expansion",
+    "tenant finish",
+    "tenant improvement",
+    "interior finish",
+    "shell building"
+  ];
+
+  if (renovationTerms.some(term => text.includes(term))) {
+    score += 12;
+  }
+
+  if (value >= 10000000) {
+    score += 25;
+  } else if (value >= 5000000) {
+    score += 22;
+  } else if (value >= 1000000) {
+    score += 18;
+  } else if (value >= 500000) {
+    score += 14;
+  } else if (value >= 250000) {
+    score += 8;
+  } else if (value > 0 && value < 25000) {
+    score -= 10;
+  }
+
   const junkTerms = [
+    "sign",
     "water heater",
-    "sprinkler",
+    "sprinkler repair",
     "service upgrade",
     "electrical service",
     "generator",
@@ -66,33 +107,91 @@ window.BuildScoutDallasImport = (() => {
     "air conditioner",
     "plumbing repair",
     "roof repair",
-    "fence"
+    "fence",
+    "access control",
+    "maglock",
+    "door access",
+    "sewer relay",
+    "sewer repair"
   ];
 
   if (junkTerms.some(term => text.includes(term))) {
-    return false;
+    score -= 35;
   }
 
-  const strongTerms = [
+  return Math.max(0, Math.min(score, 100));
+}
+  function isGoodLead(row) {
+  const value = numberValue(row.value);
+
+  const text = `
+    ${row.permit_type || ""}
+    ${row.work_description || ""}
+    ${row.land_use || ""}
+  `.toLowerCase();
+
+  const junkTerms = [
+    "sign",
+    "water heater",
+    "sprinkler repair",
+    "service upgrade",
+    "electrical service",
+    "generator",
+    "condenser",
+    "hvac replacement",
+    "air conditioner",
+    "plumbing repair",
+    "roof repair",
+    "fence",
+    "access control",
+    "maglock",
+    "door access",
+    "sewer relay",
+    "sewer repair"
+  ];
+
+  const majorTerms = [
     "new construction",
+    "new building",
     "multifamily",
     "multi family",
     "apartment",
-    "commercial",
+    "mixed use",
+    "mixed-use",
     "warehouse",
     "industrial",
-    "office",
-    "retail",
+    "distribution",
+    "hotel",
+    "office building",
+    "retail shell",
+    "commercial building",
     "addition",
     "renovation",
-    "remodel"
+    "remodel",
+    "expansion",
+    "tenant finish",
+    "tenant improvement",
+    "shell building"
   ];
 
-  const strongMatch =
-    strongTerms.some(term => text.includes(term));
+  const isJunk =
+    junkTerms.some(term => text.includes(term)) &&
+    value < 500000;
 
-  return strongMatch || value >= 500000;
+  if (isJunk) {
+    return false;
+  }
+
+  const strongMatch =
+    majorTerms.some(term => text.includes(term));
+
+  return (
+    strongMatch ||
+    value >= 500000 ||
+    scorePermit(row) >= 60
+  );
 }
+ 
   async function geocodeAddress(streetAddress, zipCode) {
   if (!streetAddress) return null;
 
