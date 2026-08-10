@@ -4,8 +4,7 @@ window.BUILDSCOUT_CONFIG = {
   mapCenter: [44.5, -96.0],
 mapZoom: 4,
    supabaseUrl: "https://fexdofuzoyvymmbtzvje.supabase.co",
-  supabasePublishableKey:"sb_publishable_QOtqQZrbX7-RXuYuy7reeg_SFmN8bvc"
-
+  supabasePublishableKey:"sb_publishable_QOtqQZrbX7-RXuYuy7reeg_SFmN8bvc",
   sources: [
     {
       city: "Fort Worth",
