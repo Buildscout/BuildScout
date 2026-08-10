@@ -161,7 +161,6 @@ function initMap(ps) {
     map.invalidateSize();
   }, 250);
 }
-}
 function viewProject(id){
   const p=projects.find(x=>x.id===id); if(!p)return;
   document.body.insertAdjacentHTML("beforeend",`<div class="modal" id="modal"><div class="modalbox">
