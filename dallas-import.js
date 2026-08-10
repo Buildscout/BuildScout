@@ -178,7 +178,7 @@ window.BuildScoutDallasImport = (() => {
     const normalized =
   rows
     .filter(isGoodLead)
-    .map(normalize);›
+    .map(normalize);
 
     const saved =
       await window.BuildScoutBackend.importProjects(
