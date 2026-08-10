@@ -309,7 +309,7 @@ zip_code: row.zip_code || "",
 
 const normalized = [];
 
-for (const [index, row] of rows.filter(isGoodLead).entries()) {
+for (const [index, row] of rows.filter(isGoodLead).slice(0, 5).entries()) {
   const project = normalize(row, index);
 
   try {
