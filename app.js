@@ -106,17 +106,61 @@ function renderPage(){
   else if(page==="data"){renderData(main)}
   else if(page==="admin"){renderAdmin(main)}
 }
-function initMap(ps){
-  if(map){map.remove()}
-  map=L.map("map",{zoomControl:true}).setView(CFG.mapCenter,CFG.mapZoom);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
-    maxZoom:19,attribution:'&copy; OpenStreetMap contributors'
-  }).addTo(map);
-  markerLayer=L.layerGroup().addTo(map);
-  ps.filter(p=>Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lon))).forEach(p=>{
-    const marker=L.marker([Number(p.lat),Number(p.lon)]).addTo(markerLayer);
-    marker.bindPopup(`<b>${esc(p.name)}</b><br>${esc(p.city||"")}<br>${money(p.value)} • ${p.score||70}/100<br><button onclick="viewProject('${p.id}')">Open project</button>`);
-  });
+function initMap(ps) {
+  if (map) {
+    map.remove();
+  }
+  map = L.map("map", {
+    zoomControl: true,
+    minZoom: 3,
+    maxZoom: 18
+  }).setView(
+    CFG.mapCenter,
+    CFG.mapZoom
+  );
+  L.tileLayer(
+    "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    {
+      maxZoom: 19,
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      crossOrigin: true
+    }
+  ).addTo(map);
+  markerLayer =
+    L.layerGroup().addTo(map);
+  ps
+    .filter(
+      p =>
+        Number.isFinite(Number(p.lat)) &&
+        Number.isFinite(Number(p.lon))
+    )
+    .forEach(p => {
+      const marker =
+        L.marker([
+          Number(p.lat),
+          Number(p.lon)
+        ]).addTo(markerLayer);
+      marker.bindPopup(`
+        <b>${esc(p.name)}</b>
+        <br>
+        ${esc(p.city || "")}
+        <br>
+        ${money(p.value)}
+        •
+        ${p.score || 70}/100
+        <br><br>
+        <button
+          onclick="viewProject('${p.id}')"
+        >
+          Open project
+        </button>
+      `);
+    });
+  setTimeout(() => {
+    map.invalidateSize();
+  }, 250);
+}
 }
 function viewProject(id){
   const p=projects.find(x=>x.id===id); if(!p)return;
