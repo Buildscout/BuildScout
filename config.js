@@ -3,6 +3,9 @@ window.BUILDSCOUT_CONFIG = {
   launchMarket: "Dallas–Fort Worth",
   mapCenter: [32.83, -97.05],
   mapZoom: 9,
+   supabaseUrl: "https://fexdofuzoyvymmbtzvje.supabase.co",
+  supabasePublishableKey:"sb_publishable_QOtqQZrbX7-RXuYuy7reeg_SFmN8bvc"
+
   sources: [
     {
       city: "Fort Worth",
