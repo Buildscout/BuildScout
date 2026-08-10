@@ -1,16 +1,27 @@
-## Hi there 👋
+# BuildScout MVP
 
-<!--
-**Buildscout/BuildScout** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
+A frontend MVP for a construction intelligence SaaS.
 
-Here are some ideas to get you started:
+## Run locally
+Open `index.html` in a modern browser.
 
-- 🔭 I’m currently working on ...
-- 🌱 I’m currently learning ...
-- 👯 I’m looking to collaborate on ...
-- 🤔 I’m looking for help with ...
-- 💬 Ask me about ...
-- 📫 How to reach me: ...
-- 😄 Pronouns: ...
-- ⚡ Fun fact: ...
--->
+## Included
+- DFW construction opportunity map (demo data)
+- Search/filtering
+- Project details
+- Opportunity scores
+- Saved projects
+- Sales pipeline
+- Alerts
+- Admin dashboard
+- Responsive UI
+- Local browser persistence
+
+## Next production steps
+1. Add authentication and a real database.
+2. Add municipal/public/licensed data connectors.
+3. Replace demo project data with verified records.
+4. Add Stripe subscriptions.
+5. Add email/SMS notifications.
+6. Add company/contact intelligence from permitted sources.
+7. Add AI outreach and ranking.
