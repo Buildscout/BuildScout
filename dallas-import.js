@@ -112,11 +112,17 @@ window.BuildScoutDallasImport = (() => {
     "maglock",
     "door access",
     "sewer relay",
-    "sewer repair"
+    "sewer repair",
+    "roof replacement",
+  "reroof",
+  "re-roof",
+  "remove existing roof",
+  "roofing",
+  "interior remodel only"
   ];
 
   if (junkTerms.some(term => text.includes(term))) {
-    score -= 35;
+    score -= 45;
   }
 
   return Math.max(0, Math.min(score, 100));
@@ -147,7 +153,13 @@ window.BuildScoutDallasImport = (() => {
     "maglock",
     "door access",
     "sewer relay",
-    "sewer repair"
+    "sewer repair",
+    "roof replacement",
+"reroof",
+"re-roof",
+"remove existing roof",
+"roofing",
+"interior remodel only"
   ];
 
   const majorTerms = [
@@ -188,7 +200,7 @@ window.BuildScoutDallasImport = (() => {
   return (
     strongMatch ||
     value >= 500000 ||
-    scorePermit(row) >= 60
+    scorePermit(row) >= 65
   );
 }
  
