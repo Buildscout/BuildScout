@@ -96,36 +96,21 @@ window.BuildScoutDallasImport = (() => {
   async function geocodeAddress(streetAddress, zipCode) {
   if (!streetAddress) return null;
 
-  const fullAddress =
-    `${streetAddress}, Dallas, TX ${zipCode || ""}`.trim();
-
   const url =
-    "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress" +
-    "?address=" + encodeURIComponent(fullAddress) +
-    "&benchmark=Public_AR_Current" +
-    "&format=json";
+    "/api/geocode" +
+    "?street=" + encodeURIComponent(streetAddress) +
+    "&zip=" + encodeURIComponent(zipCode || "");
 
   const response = await fetch(url);
 
   if (!response.ok) {
-    throw new Error(`Census geocoder returned ${response.status}`);
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || `Geocode failed with ${response.status}`);
   }
 
-  const data = await response.json();
-
-  const match =
-    data?.result?.addressMatches?.[0];
-
-  if (!match) {
-    return null;
-  }
-
-  return {
-    lat: Number(match.coordinates.y),
-    lon: Number(match.coordinates.x),
-    matchedAddress: match.matchedAddress
-  };
+  return response.json();
 }
+
   function normalize(row, index) {
     const permitNumber =
       row.permit_number ||
