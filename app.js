@@ -163,12 +163,20 @@ function initMap(ps) {
   ).addTo(map);
   markerLayer =
   L.featureGroup().addTo(map);
-  ps
-    .filter(
-      p =>
-        Number.isFinite(Number(p.lat)) &&
-        Number.isFinite(Number(p.lon))
-    )
+ ps
+  .filter(p => {
+    const lat = Number(p.lat);
+    const lon = Number(p.lon);
+
+    return (
+      Number.isFinite(lat) &&
+      Number.isFinite(lon) &&
+      lat >= 32.0 &&
+      lat <= 33.5 &&
+      lon >= -98.0 &&
+      lon <= -96.0
+    );
+  })
     .forEach(p => {
       const marker =
         L.marker([
