@@ -249,7 +249,8 @@ zip_code: row.zip_code || "",
     fetchPermits,
     normalize,
     preview,
-    importToSupabase
+    importToSupabase,
+    geocodeAddress
   };
 
 })();
