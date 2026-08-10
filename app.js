@@ -162,7 +162,7 @@ function initMap(ps) {
     }
   ).addTo(map);
   markerLayer =
-    L.layerGroup().addTo(map);
+  L.featureGroup().addTo(map);
   ps
     .filter(
       p =>
@@ -191,9 +191,20 @@ function initMap(ps) {
         </button>
       `);
     });
-  setTimeout(() => {
-    map.invalidateSize();
-  }, 250);
+ setTimeout(() => {
+  map.invalidateSize();
+
+  if (markerLayer.getLayers().length > 0) {
+    const bounds = markerLayer.getBounds();
+
+    if (bounds.isValid()) {
+      map.fitBounds(bounds, {
+        padding: [30, 30],
+        maxZoom: 11
+      });
+    }
+  }
+}, 250);
 }
 function viewProject(id){
   const p=projects.find(x=>x.id===id); if(!p)return;
