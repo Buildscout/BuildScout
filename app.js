@@ -1,6 +1,6 @@
 
 const CFG=window.BUILDSCOUT_CONFIG, DEMO=window.BUILDSCOUT_DEMO_PROJECTS;
-let imported=JSON.parse(localStorage.getItem("bs_imported")||"[]");
+let imported=JSON.parse(localStorage.getItem("bs_imported")||"[]"); 
 let saved=JSON.parse(localStorage.getItem("bs_saved")||"[]");
 let pipeline=JSON.parse(localStorage.getItem("bs_pipeline")||"{}");
 let projects=[...imported,...DEMO];
