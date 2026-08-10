@@ -4,6 +4,40 @@ let imported=JSON.parse(localStorage.getItem("bs_imported")||"[]");
 let saved=JSON.parse(localStorage.getItem("bs_saved")||"[]");
 let pipeline=JSON.parse(localStorage.getItem("bs_pipeline")||"{}");
 let projects=[...imported,...DEMO];
+
+async function loadSupabaseProjects() {
+  try {
+    const rows = await BuildScoutBackend.getProjects();
+
+    const supabaseProjects = rows.map(p => ({
+      id: p.id,
+      name: p.name,
+      city: p.city,
+      lat: p.latitude,
+      lon: p.longitude,
+      type: p.project_type,
+      stage: p.stage,
+      value: Number(p.estimated_value || 0),
+      units: p.units,
+      permit_number: p.permit_number,
+      source: p.source_name,
+      score: p.opportunity_score || 70,
+      developer: p.developer,
+      gc: p.general_contractor,
+      street_address: p.street_address,
+      zip_code: p.zip_code
+    }));
+
+    projects = [...supabaseProjects, ...imported, ...DEMO];
+
+    shell();
+    renderPage();
+
+    console.log("Loaded Supabase projects:", supabaseProjects.length);
+  } catch (error) {
+    console.error("Failed to load Supabase projects:", error);
+  }
+}
 let page="dashboard", query="", selectedType="All", selectedStage="All", minValue=0;
 let map, markerLayer;
 const app=document.getElementById("app");
@@ -279,3 +313,4 @@ function renderAdmin(main){
 }
 function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
 shell();renderPage();
+loadSupabaseProjects();
