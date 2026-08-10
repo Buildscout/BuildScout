@@ -1,6 +1,6 @@
 window.BuildScoutDallasImport = (() => {
   const API_URL =
-    "https://www.dallasopendata.com/resource/e7gq-4sah.json?$limit=10";
+  "https://www.dallasopendata.com/resource/e7gq-4sah.json?$limit=500&$order=issued_date DESC";
   function numberValue(v) {
     const n = Number(
       String(v || "")
@@ -48,6 +48,51 @@ window.BuildScoutDallasImport = (() => {
     }
     return Math.min(score, 100);
   }
+  function isGoodLead(row) {
+  const text =
+    `${row.permit_type || ""} ${row.work_description || ""}`
+      .toLowerCase();
+
+  const value = numberValue(row.value);
+
+  const junkTerms = [
+    "water heater",
+    "sprinkler",
+    "service upgrade",
+    "electrical service",
+    "generator",
+    "condenser",
+    "hvac replacement",
+    "air conditioner",
+    "plumbing repair",
+    "roof repair",
+    "fence"
+  ];
+
+  if (junkTerms.some(term => text.includes(term))) {
+    return false;
+  }
+
+  const strongTerms = [
+    "new construction",
+    "multifamily",
+    "multi family",
+    "apartment",
+    "commercial",
+    "warehouse",
+    "industrial",
+    "office",
+    "retail",
+    "addition",
+    "renovation",
+    "remodel"
+  ];
+
+  const strongMatch =
+    strongTerms.some(term => text.includes(term));
+
+  return strongMatch || value >= 500000;
+}
   function normalize(row, index) {
     const permitNumber =
       row.permit_number ||
@@ -100,7 +145,9 @@ window.BuildScoutDallasImport = (() => {
       const rows =
         await fetchPermits();
       const normalized =
-        rows.map(normalize);
+  rows
+    .filter(isGoodLead)
+    .map(normalize);
       console.log(
         "Raw Dallas permit rows:",
         rows
@@ -128,7 +175,10 @@ window.BuildScoutDallasImport = (() => {
  async function importToSupabase() {
   try {
     const rows = await fetchPermits();
-    const normalized = rows.map(normalize);
+    const normalized =
+  rows
+    .filter(isGoodLead)
+    .map(normalize);›
 
     const saved =
       await window.BuildScoutBackend.importProjects(
