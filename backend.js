@@ -104,57 +104,67 @@ async function importProjects(projectList) {
   const rows = projectList
     .filter(p => p && p.permit_number)
     .map(p => ({
-      name: p.name || "Dallas Building Permit",
-      city: p.city || "Dallas, TX",
-     street_address: p.street_address || null,
+  name: p.name || "Dallas Building Permit",
+city: p.city || "Dallas, TX",
+street_address: p.street_address || null,
 zip_code: p.zip_code || null,
-      latitude: p.lat ?? null,
-      longitude: p.lon ?? null,
-      project_type: p.type || "Commercial",
-      stage: p.stage || "Permit approved",
-      estimated_value: Number(p.value || 0),
-      units: p.units ?? null,
-      expected_start: null,
-      general_contractor: p.contractor || null,
-      permit_number: String(p.permit_number),
-      source_name: p.source || "City of Dallas OpenData",
-      source_url:
-        "https://www.dallasopendata.com/Services/Building-Permits/e7gq-4sah",
-      last_verified: new Date().toISOString().slice(0, 10)
+latitude: p.lat ?? null,
+longitude: p.lon ?? null,
+project_type: p.type || "Commercial",
+stage: p.stage || "Permit approved",
+estimated_value: Number(p.value || 0),
+units: p.units ?? null,
+expected_start: null,
+general_contractor: p.contractor || null,
+permit_number: String(p.permit_number),
+source_name: p.source || "City of Dallas OpenData",
+source_url:
+  "https://www.dallasopendata.com/Services/Building-Permits/e7gq-4sah",
+last_verified: new Date().toISOString().slice(0, 10)
     }));
 
-  const permitNumbers = rows.map(row => row.permit_number);
+const savedRows = [];
 
+for (const row of rows) {
   const { data: existing, error: lookupError } =
     await client
       .from("projects")
-      .select("permit_number")
+      .select("id")
       .eq("source_name", "City of Dallas OpenData")
-      .in("permit_number", permitNumbers);
+      .eq("permit_number", row.permit_number)
+      .maybeSingle();
 
   if (lookupError) throw lookupError;
 
-  const existingNumbers = new Set(
-    (existing || []).map(row => row.permit_number)
-  );
+  if (existing) {
+    const { data, error } =
+      await client
+        .from("projects")
+        .update(row)
+        .eq("id", existing.id)
+        .select();
 
-  const newRows = rows.filter(
-    row => !existingNumbers.has(row.permit_number)
-  );
+    if (error) throw error;
 
-  if (newRows.length === 0) {
-    return [];
+    if (data) {
+      savedRows.push(...data);
+    }
+  } else {
+    const { data, error } =
+      await client
+        .from("projects")
+        .insert(row)
+        .select();
+
+    if (error) throw error;
+
+    if (data) {
+      savedRows.push(...data);
+    }
   }
+}
 
-  const { data, error } =
-    await client
-      .from("projects")
-      .insert(newRows)
-      .select();
-
-  if (error) throw error;
-
-  return data || [];
+return savedRows;
 }
   async function getSavedProjects(userId) {
     if (!client) init();
