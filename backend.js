@@ -28,24 +28,25 @@ window.BuildScoutBackend = (() => {
     return client;
   }
 
-  async function signUp(email, password, fullName = "") {
-    if (!client) init();
+ async function signUp(email, password, firstName = "", lastName = "") {
+  if (!client) init();
 
-    const { data, error } = await client.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName
-        }
+  const { data, error } = await client.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        first_name: firstName,
+        last_name: lastName,
+        full_name: `${firstName} ${lastName}`.trim()
       }
-    });
+    }
+  });
 
-    if (error) throw error;
+  if (error) throw error;
 
-    return data;
-  }
-
+  return data;
+}
   async function signIn(email, password) {
     if (!client) init();
 
