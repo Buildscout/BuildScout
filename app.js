@@ -416,7 +416,7 @@ async function loadSupabaseProjects() {
   }
 }
 let page="dashboard", query="", selectedType="All", selectedStage="All", minValue=0;
-let map, markerLayer;
+let map, markerLayer, projectMarkers = {};
 const app=document.getElementById("app");
 
 function persist(){
@@ -522,15 +522,95 @@ function filterBar(){
 }
 
 function projectCard(p){
-  return `<div class="project-card">
-    <div class="score">${p.score||70}/100</div>
-    <span class="tag">${p.type||"Project"}</span><span class="tag">${p.stage||"Unknown stage"}</span>
-    <h3>${esc(p.name||"Unnamed project")}</h3>
-    <div class="muted">${esc(p.city||"DFW")}</div>
-    <div class="meta"><div><small>Value</small><b>${money(p.value)}</b></div><div><small>Units</small><b>${p.units||"—"}</b></div></div>
-    <div class="note">${p.source==="BuildScout demo data"?"DEMO":"IMPORTED"} • ${esc(p.source||"Unknown source")}</div>
-    <div style="margin-top:9px"><button class="btn primary" onclick="viewProject('${p.id}')">View</button> <button class="btn secondary" onclick="toggleSave('${p.id}')">${saved.includes(p.id)?"Saved":"Save"}</button></div>
+  return `<div
+    class="project-card"
+    id="project-card-${p.id}"
+    onclick="focusProjectOnMap('${p.id}')"
+    style="cursor:pointer;"
+  >
+    <div class="score">${p.score || 70}/100</div>
+
+    <span class="tag">${p.type || "Project"}</span>
+    <span class="tag">${p.stage || "Unknown stage"}</span>
+
+    <h3>${esc(p.name || "Unnamed project")}</h3>
+
+    <div class="muted">${esc(p.city || "DFW")}</div>
+
+    <div class="meta">
+      <div>
+        <small>Value</small>
+        <b>${money(p.value)}</b>
+      </div>
+
+      <div>
+        <small>Units</small>
+        <b>${p.units || "—"}</b>
+      </div>
+    </div>
+
+    <div class="note">
+      ${p.source === "BuildScout demo data" ? "DEMO" : "IMPORTED"}
+      •
+      ${esc(p.source || "Unknown source")}
+    </div>
+
+    <div style="margin-top:9px">
+      <button
+        class="btn primary"
+        onclick="event.stopPropagation();viewProject('${p.id}')"
+      >
+        View
+      </button>
+    </div>
   </div>`;
+}
+
+function focusProjectOnMap(id){
+  const project = projects.find(p => String(p.id) === String(id));
+
+  if (!project || !map) return;
+
+  const lat = Number(project.lat);
+  const lon = Number(project.lon);
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+
+  map.setView([lat, lon], Math.max(map.getZoom(), 15), {
+    animate: true
+  });
+
+  const marker = projectMarkers[id];
+
+  if (marker) {
+    marker.openPopup();
+  }
+
+  highlightProjectCard(id);
+}
+
+function highlightProjectCard(id){
+  document.querySelectorAll(".project-card").forEach(card => {
+    card.style.outline = "";
+    card.style.boxShadow = "";
+  });
+
+  const card = document.getElementById(`project-card-${id}`);
+
+  if (!card) return;
+
+  card.scrollIntoView({
+    behavior: "smooth",
+    block: "center"
+  });
+
+  card.style.outline = "2px solid #ff9f32";
+  card.style.boxShadow = "0 0 0 4px rgba(255,159,50,.15)";
+
+  setTimeout(() => {
+    card.style.outline = "";
+    card.style.boxShadow = "";
+  }, 2500);
 }
 function renderPage(){
   const main=document.getElementById("main");
@@ -592,28 +672,35 @@ function initMap(ps) {
       lon <= -96.0
     );
   })
-    .forEach(p => {
-      const marker =
-        L.marker([
-          Number(p.lat),
-          Number(p.lon)
-        ]).addTo(markerLayer);
-      marker.bindPopup(`
-        <b>${esc(p.name)}</b>
-        <br>
-        ${esc(p.city || "")}
-        <br>
-        ${money(p.value)}
-        •
-        ${p.score || 70}/100
-        <br><br>
-        <button
-          onclick="viewProject('${p.id}')"
-        >
-          Open project
-        </button>
-      `);
-    });
+ .forEach(p => {
+  const marker =
+    L.marker([
+      Number(p.lat),
+      Number(p.lon)
+    ]).addTo(markerLayer);
+
+  projectMarkers[p.id] = marker;
+
+  marker.bindPopup(`
+    <b>${esc(p.name)}</b>
+    <br>
+    ${esc(p.city || "")}
+    <br>
+    ${money(p.value)}
+    •
+    ${p.score || 70}/100
+    <br><br>
+    <button
+      onclick="viewProject('${p.id}')"
+    >
+      Open project
+    </button>
+  `);
+
+  marker.on("click", () => {
+    highlightProjectCard(p.id);
+  });
+});
  setTimeout(() => {
   map.invalidateSize();
 
