@@ -325,7 +325,7 @@ async function deleteAlert(userId, alertId) {
 
   let query = client
     .from("projects")
-    .select("*");
+    .select("*", { count: "exact" });
 
   if (filters.project_type) {
     query = query.eq("project_type", filters.project_type);
@@ -351,14 +351,15 @@ async function deleteAlert(userId, alertId) {
     query = query.ilike("city", `%${city}%`);
   }
 }
-  const { data, error } = await query
-    .order("opportunity_score", { ascending: false })
-    .limit(100);
+  const { data, error, count } = await query
+  .order("opportunity_score", { ascending: false });
 
   if (error) throw error;
 
-  return data || [];
-}
+  return {
+  projects: data || [],
+  count: count ?? (data ? data.length : 0)
+};
   return {
     configured,
     init,
