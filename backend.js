@@ -226,29 +226,40 @@ return savedRows;
     return data || [];
   }
 
-  async function updatePipeline(
-    userId,
-    projectId,
-    stage
-  ) {
-    if (!client) init();
+ async function updatePipeline(
+  userId,
+  projectId,
+  stage,
+  notes = undefined,
+  followUpAt = undefined
+) {
+  if (!client) init();
 
-    const { data, error } =
-      await client
-        .from("pipeline_items")
-        .upsert({
-          user_id: userId,
-          project_id: projectId,
-          stage,
-          updated_at:
-            new Date().toISOString()
-        });
+  const updates = {
+    user_id: userId,
+    project_id: projectId,
+    stage,
+    updated_at: new Date().toISOString()
+  };
 
-    if (error) throw error;
-
-    return data;
+  if (notes !== undefined) {
+    updates.notes = notes;
   }
 
+  if (followUpAt !== undefined) {
+    updates.follow_up_at = followUpAt || null;
+  }
+
+  const { data, error } =
+    await client
+      .from("pipeline_items")
+      .upsert(updates)
+      .select();
+
+  if (error) throw error;
+
+  return data;
+}
   return {
     configured,
     init,
