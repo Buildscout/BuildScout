@@ -320,6 +320,45 @@ async function deleteAlert(userId, alertId) {
 
   if (error) throw error;
 }
+  async function getMatchingProjects(filters = {}) {
+  if (!client) init();
+
+  let query = client
+    .from("projects")
+    .select("*");
+
+  if (filters.project_type) {
+    query = query.eq("project_type", filters.project_type);
+  }
+
+  if (filters.min_value) {
+    query = query.gte("estimated_value", filters.min_value);
+  }
+
+  if (filters.stage) {
+    query = query.eq("stage", filters.stage);
+  }
+
+ if (filters.market) {
+  const market = filters.market.trim().toLowerCase();
+
+  if (market === "dfw" || market === "dallas-fort worth") {
+    query = query.or(
+      "city.ilike.%Dallas%,city.ilike.%Fort Worth%,city.ilike.%Arlington%,city.ilike.%Plano%,city.ilike.%Frisco%,city.ilike.%Irving%,city.ilike.%Garland%,city.ilike.%McKinney%,city.ilike.%Denton%"
+    );
+  } else {
+    const city = filters.market.split(",")[0].trim();
+    query = query.ilike("city", `%${city}%`);
+  }
+}
+  const { data, error } = await query
+    .order("opportunity_score", { ascending: false })
+    .limit(100);
+
+  if (error) throw error;
+
+  return data || [];
+}
   return {
     configured,
     init,
@@ -338,6 +377,7 @@ async function deleteAlert(userId, alertId) {
     getAlerts,
 saveAlert,
 updateAlert,
-deleteAlert
+deleteAlert,
+    getMatchingProjects
   };
 })();
