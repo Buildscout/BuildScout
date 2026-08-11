@@ -649,7 +649,30 @@ function viewProject(id){
     <div style="margin-top:14px"><button class="btn primary" onclick="toggleSave('${p.id}');document.getElementById('modal').remove()">Save project</button> <button class="btn secondary" onclick="addPipeline('${p.id}');document.getElementById('modal').remove()">Add to pipeline</button></div>
   </div></div>`);
 }
-function toggleSave(id){saved=saved.includes(id)?saved.filter(x=>x!==id):[...saved,id];persist();shell();renderPage()}
+async function toggleSave(id) {
+  try {
+    const userId = currentSession?.user?.id;
+
+    if (!userId) {
+      renderAuthScreen("Please sign in again.");
+      return;
+    }
+
+    if (saved.includes(id)) {
+      await BuildScoutBackend.unsaveProject(userId, id);
+      saved = saved.filter(x => x !== id);
+    } else {
+      await BuildScoutBackend.saveProject(userId, id);
+      saved = [...saved, id];
+    }
+
+    shell();
+    renderPage();
+  } catch (error) {
+    console.error("Failed to update saved project:", error);
+    alert("Unable to update saved project. Please try again.");
+  }
+}
 function addPipeline(id){pipeline[id]="New Opportunity";persist();go("pipeline")}
 function renderPipeline(main){
   const stages=["New Opportunity","Researching","Contacted","Quoted"];
