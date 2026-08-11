@@ -571,7 +571,35 @@ function projectCard(p){
     onclick="focusProjectOnMap('${p.id}')"
     style="cursor:pointer;"
   >
-    <div class="score">${p.score || 70}/100</div>
+    <div class="score">
+  ${p.score || 70}/100
+  <span style="
+    margin-left:6px;
+    font-size:11px;
+    font-weight:800;
+    padding:3px 7px;
+    border-radius:999px;
+    ${
+      (p.score || 70) >= 90
+        ? "background:#3b1616;color:#ff6b6b;"
+        : (p.score || 70) >= 80
+        ? "background:#12351f;color:#65e58c;"
+        : (p.score || 70) >= 65
+        ? "background:#3a2f12;color:#f5c451;"
+        : "background:#252b33;color:#9ca8b6;"
+    }
+  ">
+    ${
+      (p.score || 70) >= 90
+        ? "HOT"
+        : (p.score || 70) >= 80
+        ? "STRONG"
+        : (p.score || 70) >= 65
+        ? "WATCH"
+        : "LOW"
+    }
+  </span>
+</div>
 
     <span class="tag">${p.type || "Project"}</span>
     <span class="tag">${p.stage || "Unknown stage"}</span>
