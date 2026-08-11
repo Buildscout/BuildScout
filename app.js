@@ -415,11 +415,22 @@ function filtered(){
     Number(p.value||0)>=Number(minValue||0)
   );
 }
+async function logoutBuildScout() {
+  try {
+    await BuildScoutAuth.signOut();
+    currentSession = null;
+    projects = [];
+    renderAuthScreen("You have been signed out.");
+  } catch (error) {
+    console.error("Sign out failed:", error);
+    alert("Unable to sign out. Please try again.");
+  }
+}
 function shell(){
   app.innerHTML=`<header class="topbar">
     <div class="logo">BUILD<span>SCOUT</span></div>
     <input class="search" id="globalSearch" placeholder="Search projects, companies, permits, cities..." value="${query}">
-    <div class="user">Harrison ▾</div>
+    <button class="user" onclick="logoutBuildScout()">Sign Out</button>
   </header>
   <div class="shell">
     <aside class="sidebar">
