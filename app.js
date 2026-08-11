@@ -719,24 +719,164 @@ function initMap(ps) {
 }, 250);
 }
 function viewProject(id){
-  const p=projects.find(x=>x.id===id); if(!p)return;
-  document.body.insertAdjacentHTML("beforeend",`<div class="modal" id="modal"><div class="modalbox">
-    <button class="close" onclick="document.getElementById('modal').remove()">✕</button>
-    <span class="tag">${esc(p.type||"Project")}</span><span class="tag">${esc(p.stage||"Unknown")}</span>
-    <h1>${esc(p.name)}</h1><div class="muted">${esc(p.city||"")}</div>
-    <div class="statline" style="margin-top:18px">
-      <div class="stat"><small>Estimated value</small><b>${money(p.value)}</b></div>
-      <div class="stat"><small>Units</small><b>${p.units||"—"}</b></div>
-      <div class="stat"><small>Start</small><b>${esc(p.start||"Unknown")}</b></div>
-      <div class="stat"><small>Opportunity score</small><b>${p.score||70}/100</b></div>
+  const p = projects.find(x => String(x.id) === String(id));
+  if (!p) return;
+
+  const score = Number(p.score || 70);
+  const isSaved = saved.includes(p.id);
+
+  const location = [
+    p.street_address,
+    p.city,
+    p.zip_code
+  ].filter(Boolean).join(", ");
+
+  let opportunityText = "This project may be worth monitoring as more information becomes available.";
+
+  if (score >= 85) {
+    opportunityText = "High-priority opportunity. Strong project signals indicate this lead deserves immediate attention.";
+  } else if (score >= 70) {
+    opportunityText = "Good opportunity. Review the permit, project team, and timing to determine the best outreach strategy.";
+  }
+
+  document.getElementById("modal")?.remove();
+
+  document.body.insertAdjacentHTML("beforeend", `
+    <div class="modal" id="modal">
+      <div class="modalbox">
+
+        <button
+          class="close"
+          onclick="document.getElementById('modal').remove()"
+        >
+          ×
+        </button>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+          <span class="tag">${esc(p.type || "Project")}</span>
+          <span class="tag">${esc(p.stage || "Unknown stage")}</span>
+        </div>
+
+        <h1 style="margin-bottom:6px;">
+          ${esc(p.name || "Unnamed project")}
+        </h1>
+
+        <div class="muted" style="font-size:16px;">
+          ${esc(location || p.city || "Location unavailable")}
+        </div>
+
+        <div class="statline" style="margin-top:20px;">
+          <div class="stat">
+            <small>Estimated value</small>
+            <b>${money(p.value)}</b>
+          </div>
+
+          <div class="stat">
+            <small>Units</small>
+            <b>${p.units || "—"}</b>
+          </div>
+
+          <div class="stat">
+            <small>Opportunity score</small>
+            <b>${score}/100</b>
+          </div>
+
+          <div class="stat">
+            <small>Permit number</small>
+            <b>${esc(p.permit_number || "—")}</b>
+          </div>
+        </div>
+
+        <div class="grid" style="margin-top:18px;">
+
+          <div class="panel">
+            <h3>Project team</h3>
+
+            <p>
+              <b>Developer / Owner</b><br>
+              ${esc(p.developer || "Not identified yet")}
+            </p>
+
+            <p>
+              <b>General contractor</b><br>
+              ${esc(p.gc || "Not identified yet")}
+            </p>
+          </div>
+
+          <div class="panel">
+            <h3>Project intelligence</h3>
+
+            <p>
+              <b>Project type</b><br>
+              ${esc(p.type || "Unknown")}
+            </p>
+
+            <p>
+              <b>Current stage</b><br>
+              ${esc(p.stage || "Unknown")}
+            </p>
+
+            <p>
+              <b>Source</b><br>
+              ${esc(p.source || "Unknown source")}
+            </p>
+          </div>
+
+        </div>
+
+        <div class="panel" style="margin-top:14px;">
+          <h3>Location</h3>
+
+          <p>
+            ${esc(location || "Address information not available")}
+          </p>
+        </div>
+
+        <div class="panel" style="margin-top:14px;">
+          <h3>Why pursue this project?</h3>
+
+          <p>${esc(opportunityText)}</p>
+        </div>
+
+        <div
+          style="
+            display:flex;
+            gap:10px;
+            flex-wrap:wrap;
+            margin-top:18px;
+          "
+        >
+          <button
+            class="btn primary"
+            onclick="toggleSave('${p.id}')"
+          >
+            ${isSaved ? "Saved" : "Save project"}
+          </button>
+
+          <button
+            class="btn secondary"
+            onclick="addProjectToPipeline('${p.id}');document.getElementById('modal')?.remove()"
+          >
+            Add to pipeline
+          </button>
+
+          ${
+            Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lon))
+              ? `
+                <button
+                  class="btn secondary"
+                  onclick="document.getElementById('modal')?.remove();focusProjectOnMap('${p.id}')"
+                >
+                  Show on map
+                </button>
+              `
+              : ""
+          }
+        </div>
+
+      </div>
     </div>
-    <div class="grid">
-      <div class="panel"><h3>Project team</h3><p><b>Developer:</b> ${esc(p.developer||"Unknown")}</p><p><b>GC:</b> ${esc(p.gc||"Unknown")}</p><p><b>Architect:</b> ${esc(p.architect||"Unknown")}</p></div>
-      <div class="panel"><h3>Permit intelligence</h3><p><b>Permit:</b> ${esc(p.permit_number||"Unknown")}</p><p><b>Source:</b> ${esc(p.source||"Unknown")}</p><p><b>Last verified:</b> ${esc(p.verified||"Unknown")}</p></div>
-    </div>
-    <div class="panel" style="margin-top:12px"><h3>Why pursue it?</h3><p>${(p.score||70)>=85?"High priority: project size, stage, and location make this a strong candidate for early sales outreach.":"Moderate priority: verify the project stage and trade fit before outreach."}</p></div>
-    <div style="margin-top:14px"><button class="btn primary" onclick="toggleSave('${p.id}');document.getElementById('modal').remove()">Save project</button> <button class="btn secondary" onclick="addPipeline('${p.id}');document.getElementById('modal').remove()">Add to pipeline</button></div>
-  </div></div>`);
+  `);
 }
 async function toggleSave(id) {
   try {
