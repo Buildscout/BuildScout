@@ -837,10 +837,166 @@ async function advance(id) {
     alert("Unable to update pipeline. Please try again.");
   }
 }
-function renderAlerts(main){
-  main.innerHTML=`<div class="pagehead"><div><h1>Alerts</h1><div class="muted">MVP alert preferences. Automated email delivery comes with the backend.</div></div></div>
-  <div class="panel"><h3>Recommended launch alert</h3><p>Multifamily • $10M+ • Planning / Permit Approved / Pre-construction • DFW</p>
-  <button class="btn primary" onclick="alert('Alert preference saved locally for the MVP.')">Save alert</button></div>`;
+async function renderAlerts(main) {
+  const userId = currentSession?.user?.id;
+
+  if (!userId) {
+    renderAuthScreen("Please sign in again.");
+    return;
+  }
+
+  main.innerHTML = `
+    <div class="pagehead">
+      <div>
+        <h1>Alerts</h1>
+        <div class="muted">Save project searches and opportunities you want to track.</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Recommended launch alert</h3>
+      <p>Multifamily • $10M+ • Planning / Permit Approved / Pre-construction • DFW</p>
+      <button class="btn primary" onclick="saveRecommendedAlert()">
+        Save alert
+      </button>
+    </div>
+
+    <div id="savedAlerts" style="margin-top:18px;">
+      <div class="muted">Loading your alerts...</div>
+    </div>
+  `;
+
+  try {
+    const alerts = await BuildScoutBackend.getAlerts(userId);
+    const container = document.getElementById("savedAlerts");
+
+    if (!alerts.length) {
+      container.innerHTML = `
+        <div class="panel">
+          <h3>Your alerts</h3>
+          <p class="muted">You haven't saved any alerts yet.</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="panel">
+        <h3>Your alerts</h3>
+
+        ${alerts.map(a => `
+          <div style="padding:14px 0;border-bottom:1px solid rgba(255,255,255,.1)">
+            <div style="display:flex;justify-content:space-between;gap:16px;align-items:center;">
+              <div>
+                <b>${esc(a.name)}</b>
+                <div class="muted">
+                  ${a.is_active ? "Active" : "Paused"}
+                </div>
+              </div>
+
+              <div style="display:flex;gap:8px;">
+                <button
+                  class="btn"
+                  onclick="toggleAlert('${a.id}', ${!a.is_active})"
+                >
+                  ${a.is_active ? "Pause" : "Activate"}
+                </button>
+
+                <button
+                  class="btn"
+                  onclick="removeAlert('${a.id}')"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        `).join("")}
+
+      </div>
+    `;
+  } catch (error) {
+    console.error("Failed to load alerts:", error);
+
+    document.getElementById("savedAlerts").innerHTML = `
+      <div class="panel">
+        <p>Unable to load alerts. Please try again.</p>
+      </div>
+    `;
+  }
+}
+async function saveRecommendedAlert() {
+  try {
+    const userId = currentSession?.user?.id;
+
+    if (!userId) {
+      renderAuthScreen("Please sign in again.");
+      return;
+    }
+
+    await BuildScoutBackend.saveAlert(
+      userId,
+      "DFW Multifamily $10M+",
+      {
+        project_type: "Multifamily",
+        min_value: 10000000,
+        stages: [
+          "Planning",
+          "Permit approved",
+          "Pre-construction"
+        ],
+        market: "DFW"
+      }
+    );
+
+    const main = document.getElementById("main");
+    await renderAlerts(main);
+  } catch (error) {
+    console.error("Failed to save alert:", error);
+    alert("Unable to save alert. Please try again.");
+  }
+}
+
+async function toggleAlert(alertId, isActive) {
+  try {
+    const userId = currentSession?.user?.id;
+
+    if (!userId) {
+      renderAuthScreen("Please sign in again.");
+      return;
+    }
+
+    await BuildScoutBackend.updateAlert(
+      userId,
+      alertId,
+      { is_active: isActive }
+    );
+
+    const main = document.getElementById("main");
+    await renderAlerts(main);
+  } catch (error) {
+    console.error("Failed to update alert:", error);
+    alert("Unable to update alert. Please try again.");
+  }
+}
+
+async function removeAlert(alertId) {
+  try {
+    const userId = currentSession?.user?.id;
+
+    if (!userId) {
+      renderAuthScreen("Please sign in again.");
+      return;
+    }
+
+    await BuildScoutBackend.deleteAlert(userId, alertId);
+
+    const main = document.getElementById("main");
+    await renderAlerts(main);
+  } catch (error) {
+    console.error("Failed to delete alert:", error);
+    alert("Unable to delete alert. Please try again.");
+  }
 }
 function renderData(main){
   main.innerHTML=`<div class="pagehead"><div><h1>Data Sources</h1><div class="muted">Bring real permit/project data into BuildScout.</div></div></div>
