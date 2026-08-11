@@ -171,7 +171,7 @@ function renderPage(){
     main.innerHTML=`<div class="pagehead"><div><h1>Construction Intelligence</h1><div class="muted">Find projects before your competition.</div></div><button class="btn primary" onclick="go('data')">Import permit data</button></div>
       <div class="statline">
         <div class="stat"><small>Matching projects</small><b>${ps.length}</b></div>
-      <div class="stat"><small>Imported records</small><b>${projects.length - DEMO.length}</b></div>
+      <div class="stat"><small>Imported records</small><b>${projects.length}</b></div>
         <div class="stat"><small>Saved projects</small><b>${saved.length}</b></div>
         <div class="stat"><small>High-opportunity</small><b>${ps.filter(p=>(p.score||0)>=75).length}</b></div>
       </div>${filterBar()}
