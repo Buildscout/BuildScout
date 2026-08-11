@@ -3,7 +3,7 @@ const CFG=window.BUILDSCOUT_CONFIG, DEMO=window.BUILDSCOUT_DEMO_PROJECTS;
 let imported=JSON.parse(localStorage.getItem("bs_imported")||"[]"); 
 let saved=JSON.parse(localStorage.getItem("bs_saved")||"[]");
 let pipeline=JSON.parse(localStorage.getItem("bs_pipeline")||"{}");
-let projects = [];
+let pipelineDetails = {};
 
 let currentSession = null;
 let authMode = "signin";
@@ -293,9 +293,28 @@ async function startBuildScout() {
     return;
   }
 
+  const userId = currentSession.user.id;
+
+  const savedRows = await BuildScoutBackend.getSavedProjects(userId);
+  saved = savedRows.map(row => row.project_id);
+
+  const pipelineRows = await BuildScoutBackend.getPipeline(userId);
+
+  pipeline = {};
+  pipelineDetails = {};
+
+  pipelineRows.forEach(row => {
+    pipeline[row.project_id] = row.stage;
+
+    pipelineDetails[row.project_id] = {
+      notes: row.notes || "",
+      follow_up_at: row.follow_up_at || null
+    };
+  });
+
   await loadSupabaseProjects();
 }
-
+ 
 async function bootBuildScout() {
   try {
     currentSession = await BuildScoutBackend.getSession();
