@@ -416,7 +416,8 @@ async function loadSupabaseProjects() {
   }
 }
 let page="dashboard", query="", selectedType="All", selectedStage="All", minValue=0;
-let map, markerLayer, projectMarkers = {};
+let map, markerLayer;
+let projectMarkers = {};
 const app=document.getElementById("app");
 
 function persist(){
@@ -658,6 +659,7 @@ function initMap(ps) {
   ).addTo(map);
   markerLayer =
   L.featureGroup().addTo(map);
+  projectMarkers = {};
  ps
   .filter(p => {
     const lat = Number(p.lat);
