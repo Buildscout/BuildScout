@@ -33,12 +33,18 @@ function isDisplayLead(p) {
     "door access",
     "sewer relay",
     "sewer repair",
-    "swimming pool"
+    "swimming pool",
+    "fireline",
+"general repair",
+"repair work only",
+"no structural changes",
+"plumbing",
+"electrical repair"
   ];
 
   const isJunk = junkTerms.some(term => name.includes(term));
 
-  if (isJunk && value < 500000) {
+  if (isJunk && value < 750000) {
     return false;
   }
 
