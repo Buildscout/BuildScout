@@ -304,7 +304,7 @@ zip_code: row.zip_code || "",
   }
 
  async function importToSupabase() {
-  try {
+  try { 
    const rows = await fetchPermits();
 
 const normalized = [];
