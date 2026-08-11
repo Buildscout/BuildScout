@@ -4,12 +4,53 @@ let imported=JSON.parse(localStorage.getItem("bs_imported")||"[]");
 let saved=JSON.parse(localStorage.getItem("bs_saved")||"[]");
 let pipeline=JSON.parse(localStorage.getItem("bs_pipeline")||"{}");
 let projects=[...imported,...DEMO];
+function isDisplayLead(p) {
+  const name = String(p.name || "").toLowerCase();
+  const value = Number(p.estimated_value || 0);
 
+  if (!name.trim() || name === "null") return false;
+
+  const junkTerms = [
+    "sign",
+    "water heater",
+    "sprinkler",
+    "service upgrade",
+    "electrical service",
+    "generator",
+    "condenser",
+    "hvac replacement",
+    "install new hvac",
+    "air conditioner",
+    "plumbing repair",
+    "roof repair",
+    "roof replacement",
+    "reroof",
+    "re-roof",
+    "remove existing roof",
+    "fence",
+    "access control",
+    "maglock",
+    "door access",
+    "sewer relay",
+    "sewer repair",
+    "swimming pool"
+  ];
+
+  const isJunk = junkTerms.some(term => name.includes(term));
+
+  if (isJunk && value < 500000) {
+    return false;
+  }
+
+  return true;
+}
 async function loadSupabaseProjects() {
   try {
     const rows = await BuildScoutBackend.getProjects();
 
-    const supabaseProjects = rows.map(p => ({
+    const supabaseProjects = rows
+  .filter(isDisplayLead)
+  .map(p => ({
       id: p.id,
       name: p.name,
       city: p.city,
