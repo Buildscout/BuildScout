@@ -167,7 +167,7 @@ function projectCard(p){
 function renderPage(){
   const main=document.getElementById("main");
   if(page==="dashboard"){
-    const ps=filtered();
+    const ps = filtered().sort((a, b) => (b.score || 0) - (a.score || 0));
     main.innerHTML=`<div class="pagehead"><div><h1>Construction Intelligence</h1><div class="muted">Find projects before your competition.</div></div><button class="btn primary" onclick="go('data')">Import permit data</button></div>
       <div class="statline">
         <div class="stat"><small>Matching projects</small><b>${ps.length}</b></div>
