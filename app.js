@@ -1007,66 +1007,82 @@ async function renderAlerts(main) {
       <div class="panel">
         <h3>Your alerts</h3>
 
-        ${alerts.map(a => {
-          const f = a.filters || {};
+        ${(
+  await Promise.all(
+    alerts.map(async a => {
+      const f = a.filters || {};
+      const matches = a.is_active
+        ? await BuildScoutBackend.getMatchingProjects(f)
+        : [];
 
-          const details = [
-            f.market || null,
-            f.project_type || null,
-            f.min_value
-              ? "$" + Number(f.min_value).toLocaleString() + "+"
-              : null,
-            f.stage || null
-          ].filter(Boolean).join(" • ");
+      const details = [
+        f.market || null,
+        f.project_type || null,
+        f.min_value
+          ? "$" + Number(f.min_value).toLocaleString() + "+"
+          : null,
+        f.stage || null
+      ]
+        .filter(Boolean)
+        .join(" • ");
 
-          return `
-            <div style="
-              padding:16px 0;
-              border-bottom:1px solid rgba(255,255,255,.1);
-            ">
-              <div style="
-                display:flex;
-                justify-content:space-between;
-                gap:16px;
-                align-items:center;
-              ">
+      return `
+        <div style="
+          padding:16px 0;
+          border-bottom:1px solid rgba(255,255,255,.1);
+        ">
+          <div style="
+            display:flex;
+            justify-content:space-between;
+            gap:16px;
+            align-items:center;
+          ">
+            <div>
+              <b>${esc(a.name)}</b>
 
-                <div>
-                  <b>${esc(a.name)}</b>
-
-                  <div class="muted" style="margin-top:4px;">
-                    ${details ? esc(details) : "All opportunities"}
-                  </div>
-
-                  <div
-                    class="muted"
-                    style="margin-top:4px;font-size:12px;"
-                  >
-                    ${a.is_active ? "Active" : "Paused"}
-                  </div>
-                </div>
-
-                <div style="display:flex;gap:8px;">
-                  <button
-                    class="btn"
-                    onclick="toggleAlert('${a.id}', ${!a.is_active})"
-                  >
-                    ${a.is_active ? "Pause" : "Activate"}
-                  </button>
-
-                  <button
-                    class="btn"
-                    onclick="removeAlert('${a.id}')"
-                  >
-                    Delete
-                  </button>
-                </div>
-
+              <div class="muted" style="margin-top:4px;">
+                ${details ? esc(details) : "All opportunities"}
               </div>
-            </div>
-          `;
-        }).join("")}
 
+              <div
+                class="muted"
+                style="margin-top:4px;font-size:12px;"
+              >
+                ${a.is_active ? "Active" : "Paused"}
+              </div>
+
+              ${
+                a.is_active
+                  ? `
+                    <div style="margin-top:10px;font-weight:700;">
+                      ${matches.length} matching project${matches.length === 1 ? "" : "s"}
+                    </div>
+                  `
+                  : ""
+              }
+            </div>
+
+            <div style="display:flex;gap:8px;">
+              <button
+                class="btn"
+                onclick="toggleAlert('${a.id}', ${!a.is_active})"
+              >
+                ${a.is_active ? "Pause" : "Activate"}
+              </button>
+
+              <button
+                class="btn"
+                onclick="removeAlert('${a.id}')"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    })
+  )
+).join("")}
       </div>
     `;
 
