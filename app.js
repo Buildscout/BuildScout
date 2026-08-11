@@ -417,7 +417,7 @@ function filtered(){
 }
 async function logoutBuildScout() {
   try {
-    await BuildScoutAuth.signOut();
+    await BuildScoutBackend.signOut();
     currentSession = null;
     projects = [];
     renderAuthScreen("You have been signed out.");
