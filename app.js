@@ -474,7 +474,34 @@ function filterBar(){
     </select>
     <button class="btn secondary" onclick="query='';selectedType='All';selectedStage='All';minValue=0;shell();renderPage()">Reset</button>
   </div>`;
+}async function addProjectToPipeline(projectId) {
+  try {
+    const userId = currentSession?.user?.id;
+
+    if (!userId) {
+      renderAuthScreen("Please sign in again.");
+      return;
+    }
+
+    await BuildScoutBackend.updatePipeline(
+      userId,
+      projectId,
+      "New Opportunity"
+    );
+
+    pipeline[projectId] = "New Opportunity";
+    persist();
+
+    page = "pipeline";
+    shell();
+    renderPage();
+
+  } catch (error) {
+    console.error("Failed to add project to pipeline:", error);
+    alert("Unable to add project to pipeline. Please try again.");
+  }
 }
+
 function projectCard(p){
   return `<div class="project-card">
     <div class="score">${p.score||70}/100</div>
