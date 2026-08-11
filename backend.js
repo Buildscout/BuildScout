@@ -260,6 +260,66 @@ return savedRows;
 
   return data;
 }
+  async function getAlerts(userId) {
+  if (!client) init();
+
+  const { data, error } = await client
+    .from("alerts")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+
+  return data || [];
+}
+
+async function saveAlert(userId, name, filters = {}) {
+  if (!client) init();
+
+  const { data, error } = await client
+    .from("alerts")
+    .insert({
+      user_id: userId,
+      name,
+      filters,
+      is_active: true
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return data;
+}
+
+async function updateAlert(userId, alertId, updates = {}) {
+  if (!client) init();
+
+  const { data, error } = await client
+    .from("alerts")
+    .update(updates)
+    .eq("id", alertId)
+    .eq("user_id", userId)
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return data;
+}
+
+async function deleteAlert(userId, alertId) {
+  if (!client) init();
+
+  const { error } = await client
+    .from("alerts")
+    .delete()
+    .eq("id", alertId)
+    .eq("user_id", userId);
+
+  if (error) throw error;
+}
   return {
     configured,
     init,
@@ -274,6 +334,10 @@ return savedRows;
     saveProject,
     unsaveProject,
     getPipeline,
-    updatePipeline
+    updatePipeline,
+    getAlerts,
+saveAlert,
+updateAlert,
+deleteAlert
   };
 })();
