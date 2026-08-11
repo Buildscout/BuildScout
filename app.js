@@ -1011,9 +1011,9 @@ async function renderAlerts(main) {
   await Promise.all(
     alerts.map(async a => {
       const f = a.filters || {};
-      const matches = a.is_active
-        ? await BuildScoutBackend.getMatchingProjects(f)
-        : [];
+     const matchResult = a.is_active
+  ? await BuildScoutBackend.getMatchingProjects(f)
+  : { projects: [], count: 0 };
 
       const details = [
         f.market || null,
@@ -1055,7 +1055,7 @@ async function renderAlerts(main) {
                 a.is_active
                   ? `
                     <div style="margin-top:10px;font-weight:700;">
-                      ${matches.length} matching project${matches.length === 1 ? "" : "s"}
+                     ${matchResult.count} matching project${matchResult.count === 1 ? "" : "s"}
                     </div>
                   `
                   : ""
