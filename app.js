@@ -694,11 +694,113 @@ async function addPipeline(id) {
     alert("Unable to add project to pipeline. Please try again.");
   }
 }
-function renderPipeline(main){
-  const stages=["New Opportunity","Researching","Contacted","Quoted"];
-  main.innerHTML=`<div class="pagehead"><div><h1>Sales Pipeline</h1><div class="muted">Move projects from discovery toward a sale.</div></div></div><div class="pipeline">
-    ${stages.map(s=>`<div class="column"><h3>${s}</h3>${projects.filter(p=>(pipeline[p.id]||"")===s).map(p=>`<div class="lead"><b>${esc(p.name)}</b><div class="muted">${money(p.value)}</div><button class="btn secondary" style="margin-top:8px" onclick="advance('${p.id}')">Advance →</button></div>`).join("")}</div>`).join("")}
-  </div>`;
+function renderPipeline(main) {
+  const stages = ["New Opportunity", "Researching", "Contacted", "Quoted"];
+
+  main.innerHTML = `
+    <div class="pagehead">
+      <div>
+        <h1>Sales Pipeline</h1>
+        <div class="muted">Move projects from discovery toward a sale.</div>
+      </div>
+    </div>
+
+    <div class="pipeline-grid">
+      ${stages.map(stage => `
+        <div class="column">
+          <h3>${stage}</h3>
+
+          ${projects
+            .filter(p => (pipeline[p.id] || "") === stage)
+            .map(p => {
+              const details = pipelineDetails[p.id] || {};
+              const notes = details.notes || "";
+              const followUp = details.follow_up_at
+                ? new Date(details.follow_up_at).toISOString().slice(0, 10)
+                : "";
+
+              return `
+                <div class="project-card">
+                  <h3>${esc(p.name || "Unnamed project")}</h3>
+                  <div class="muted">${esc(p.city || "")}</div>
+                  <div style="margin-top:8px"><b>${money(p.value)}</b></div>
+
+                  <textarea
+                    id="pipelineNotes-${p.id}"
+                    placeholder="Add notes..."
+                    style="width:100%;min-height:80px;margin-top:12px;padding:10px;box-sizing:border-box;"
+                  >${esc(notes)}</textarea>
+
+                  <input
+                    id="pipelineFollowUp-${p.id}"
+                    type="date"
+                    value="${followUp}"
+                    style="width:100%;margin-top:8px;padding:10px;box-sizing:border-box;"
+                  />
+
+                  <div style="display:flex;gap:8px;margin-top:10px;">
+                    <button
+                      class="btn secondary"
+                      onclick="savePipelineDetails('${p.id}')"
+                    >
+                      Save
+                    </button>
+
+                    <button
+                      class="btn primary"
+                      onclick="advance('${p.id}')"
+                    >
+                      Advance →
+                    </button>
+                  </div>
+                </div>
+              `;
+            })
+            .join("")}
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+async function savePipelineDetails(id) {
+  try {
+    const userId = currentSession?.user?.id;
+
+    if (!userId) {
+      renderAuthScreen("Please sign in again.");
+      return;
+    }
+
+    const notes =
+      document.getElementById(`pipelineNotes-${id}`)?.value || "";
+
+    const followUpValue =
+      document.getElementById(`pipelineFollowUp-${id}`)?.value || "";
+
+    const followUpAt = followUpValue
+      ? new Date(`${followUpValue}T12:00:00`).toISOString()
+      : null;
+
+    const stage = pipeline[id] || "New Opportunity";
+
+    await BuildScoutBackend.updatePipeline(
+      userId,
+      id,
+      stage,
+      notes,
+      followUpAt
+    );
+
+    pipelineDetails[id] = {
+      notes,
+      follow_up_at: followUpAt
+    };
+
+    alert("Pipeline details saved.");
+  } catch (error) {
+    console.error("Failed to save pipeline details:", error);
+    alert("Unable to save pipeline details. Please try again.");
+  }
 }
 async function advance(id) {
   try {
