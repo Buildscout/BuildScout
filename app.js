@@ -865,7 +865,7 @@ function viewProject(id){
               ? `
                 <button
                   class="btn secondary"
-                  onclick="document.getElementById('modal')?.remove();focusProjectOnMap('${p.id}')"
+                  onclick="document.getElementById('modal')?.remove();go('dashboard');setTimeout(()=>focusProjectOnMap('${p.id}'),400)"
                 >
                   Show on map
                 </button>
