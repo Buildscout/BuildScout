@@ -11,6 +11,7 @@ window.BuildScoutBackend = (() => {
   }
 
   function init() {
+    if (client) return client;
     if (!configured()) {
       throw new Error("Supabase configuration is missing.");
     }
