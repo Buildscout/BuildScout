@@ -398,7 +398,7 @@ async function loadSupabaseProjects() {
       units: p.units,
       permit_number: p.permit_number,
       source: p.source_name,
-      score: p.opportunity_score || 70,
+      score: calculateOpportunityScore(p),
       developer: p.developer,
       gc: p.general_contractor,
       street_address: p.street_address,
@@ -426,6 +426,48 @@ function persist(){
   localStorage.setItem("bs_pipeline",JSON.stringify(pipeline));
 }
 function money(n){if(!n)return "—"; return n>=1e6?`$${(n/1e6).toFixed(1)}M`:`$${Number(n).toLocaleString()}`}
+function calculateOpportunityScore(p){
+  let score = 35;
+
+  const value = Number(p.estimated_value || p.value || 0);
+  const stage = String(p.stage || "").toLowerCase();
+  const type = String(p.project_type || p.type || "").toLowerCase();
+
+  if (value >= 25000000) score += 20;
+  else if (value >= 10000000) score += 17;
+  else if (value >= 5000000) score += 14;
+  else if (value >= 1000000) score += 10;
+  else if (value >= 500000) score += 6;
+  else if (value > 0) score += 3;
+
+  if (
+    stage.includes("pre-construction") ||
+    stage.includes("preconstruction")
+  ) {
+    score += 20;
+  } else if (stage.includes("permit approved")) {
+    score += 18;
+  } else if (stage.includes("planning")) {
+    score += 17;
+  } else if (stage.includes("permit")) {
+    score += 14;
+  } else if (stage.includes("construction")) {
+    score += 8;
+  }
+
+  if (type.includes("multifamily")) score += 10;
+  else if (type.includes("commercial")) score += 8;
+  else if (type.includes("industrial")) score += 8;
+  else if (type.includes("mixed")) score += 9;
+  else if (type.includes("residential")) score += 5;
+
+  if (p.general_contractor || p.gc) score += 5;
+  if (p.developer) score += 5;
+  if (p.permit_number) score += 3;
+  if (p.street_address) score += 2;
+
+  return Math.min(100, Math.max(0, Math.round(score)));
+}
 function filtered(){
   const q=query.toLowerCase();
   return projects.filter(p =>
