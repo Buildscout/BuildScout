@@ -173,7 +173,7 @@ function renderPage(){
         <div class="stat"><small>Matching projects</small><b>${ps.length}</b></div>
       <div class="stat"><small>Imported records</small><b>${projects.length - DEMO.length}</b></div>
         <div class="stat"><small>Saved projects</small><b>${saved.length}</b></div>
-        <div class="stat"><small>High-opportunity</small><b>${ps.filter(p=>(p.score||0)>=85).length}</b></div>
+        <div class="stat"><small>High-opportunity</small><b>${ps.filter(p=>(p.score||0)>=75).length}</b></div>
       </div>${filterBar()}
       <div class="map-wrap"><div id="map"></div><div class="listpanel">${ps.map(projectCard).join("")||"<div class='muted'>No projects match.</div>"}</div></div>`;
     setTimeout(()=>initMap(ps),0);
