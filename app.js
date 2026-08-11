@@ -4,6 +4,317 @@ let imported=JSON.parse(localStorage.getItem("bs_imported")||"[]");
 let saved=JSON.parse(localStorage.getItem("bs_saved")||"[]");
 let pipeline=JSON.parse(localStorage.getItem("bs_pipeline")||"{}");
 let projects = [];
+
+let currentSession = null;
+let authMode = "signin";
+
+function renderAuthScreen(message = "") {
+  const root = document.getElementById("app");
+  const isSignup = authMode === "signup";
+
+  root.innerHTML = `
+    <div style="
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:#08131d;
+      padding:24px;
+      box-sizing:border-box;
+      font-family:Arial,sans-serif;
+    ">
+      <div style="
+        width:100%;
+        max-width:440px;
+        background:#10202c;
+        border:1px solid #29404f;
+        border-radius:16px;
+        padding:36px;
+        box-sizing:border-box;
+        box-shadow:0 20px 60px rgba(0,0,0,.35);
+      ">
+
+        <div style="
+          font-size:30px;
+          font-weight:800;
+          color:white;
+          margin-bottom:8px;
+        ">
+          BUILD<span style="color:#ff9f32;">SCOUT</span>
+        </div>
+
+        <div style="
+          color:#9fb1bd;
+          margin-bottom:28px;
+          font-size:15px;
+        ">
+          Construction intelligence for the people who build.
+        </div>
+
+        <h2 style="
+          color:white;
+          margin:0 0 8px;
+          font-size:24px;
+        ">
+          ${isSignup ? "Create your account" : "Welcome back"}
+        </h2>
+
+        <p style="
+          color:#9fb1bd;
+          margin:0 0 24px;
+          line-height:1.5;
+        ">
+          ${
+            isSignup
+              ? "Create your BuildScout account to start finding construction opportunities."
+              : "Sign in to access your BuildScout dashboard."
+          }
+        </p>
+
+        ${
+          isSignup
+            ? `
+              <div style="display:flex;gap:12px;">
+                <input
+                  id="authFirstName"
+                  type="text"
+                  placeholder="First name"
+                  autocomplete="given-name"
+                  style="${authInputStyle()}"
+                />
+
+                <input
+                  id="authLastName"
+                  type="text"
+                  placeholder="Last name"
+                  autocomplete="family-name"
+                  style="${authInputStyle()}"
+                />
+              </div>
+            `
+            : ""
+        }
+
+        <input
+          id="authEmail"
+          type="email"
+          placeholder="Email address"
+          autocomplete="email"
+          style="${authInputStyle()}"
+        />
+
+        <input
+          id="authPassword"
+          type="password"
+          placeholder="Password"
+          autocomplete="${isSignup ? "new-password" : "current-password"}"
+          style="${authInputStyle()}"
+        />
+
+        ${
+          message
+            ? `
+              <div style="
+                background:#172b38;
+                border:1px solid #385365;
+                color:#d8e4ea;
+                padding:12px;
+                border-radius:8px;
+                margin-bottom:16px;
+                font-size:14px;
+                line-height:1.4;
+              ">
+                ${escapeAuthText(message)}
+              </div>
+            `
+            : ""
+        }
+
+        <button
+          id="authSubmit"
+          type="button"
+          style="
+            width:100%;
+            border:0;
+            background:#ff9f32;
+            color:#08131d;
+            font-weight:800;
+            padding:14px 18px;
+            border-radius:9px;
+            cursor:pointer;
+            font-size:16px;
+          "
+        >
+          ${isSignup ? "Create account" : "Sign in"}
+        </button>
+
+        <div style="
+          text-align:center;
+          margin-top:22px;
+          color:#9fb1bd;
+          font-size:14px;
+        ">
+          ${isSignup ? "Already have an account?" : "New to BuildScout?"}
+
+          <button
+            id="authSwitch"
+            type="button"
+            style="
+              background:none;
+              border:0;
+              color:#ff9f32;
+              cursor:pointer;
+              font-weight:700;
+              font-size:14px;
+            "
+          >
+            ${isSignup ? "Sign in" : "Create account"}
+          </button>
+        </div>
+
+      </div>
+    </div>
+  `;
+
+  document
+    .getElementById("authSubmit")
+    .addEventListener("click", handleAuthSubmit);
+
+  document
+    .getElementById("authSwitch")
+    .addEventListener("click", () => {
+      authMode = isSignup ? "signin" : "signup";
+      renderAuthScreen();
+    });
+
+  document
+    .getElementById("authPassword")
+    .addEventListener("keydown", event => {
+      if (event.key === "Enter") {
+        handleAuthSubmit();
+      }
+    });
+}
+
+function authInputStyle() {
+  return `
+    width:100%;
+    box-sizing:border-box;
+    background:#08131d;
+    border:1px solid #38505f;
+    color:white;
+    padding:13px 14px;
+    border-radius:8px;
+    margin-bottom:14px;
+    outline:none;
+    font-size:15px;
+  `;
+}
+
+function escapeAuthText(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+async function handleAuthSubmit() {
+  const email = document.getElementById("authEmail").value.trim();
+  const password = document.getElementById("authPassword").value;
+
+  if (!email || !password) {
+    renderAuthScreen("Enter your email and password.");
+    return;
+  }
+
+  if (password.length < 6) {
+    renderAuthScreen("Password must be at least 6 characters.");
+    return;
+  }
+
+  try {
+    if (authMode === "signup") {
+      const firstName = document
+        .getElementById("authFirstName")
+        .value.trim();
+
+      const lastName = document
+        .getElementById("authLastName")
+        .value.trim();
+
+      if (!firstName || !lastName) {
+        renderAuthScreen("Enter your first and last name.");
+        return;
+      }
+
+      await BuildScoutBackend.signUp(
+        email,
+        password,
+        firstName,
+        lastName
+      );
+
+      authMode = "signin";
+
+      renderAuthScreen(
+        "Account created. Check your email to verify your address, then return here and sign in."
+      );
+
+      return;
+    }
+
+    await BuildScoutBackend.signIn(email, password);
+
+    currentSession = await BuildScoutBackend.getSession();
+
+    if (!currentSession) {
+      renderAuthScreen(
+        "Please verify your email address before signing in."
+      );
+      return;
+    }
+
+    await startBuildScout();
+
+  } catch (error) {
+    console.error("Authentication failed:", error);
+
+    renderAuthScreen(
+      error.message || "Authentication failed. Please try again."
+    );
+  }
+}
+
+async function startBuildScout() {
+  currentSession = await BuildScoutBackend.getSession();
+
+  if (!currentSession) {
+    renderAuthScreen();
+    return;
+  }
+
+  await loadSupabaseProjects();
+}
+
+async function bootBuildScout() {
+  try {
+    currentSession = await BuildScoutBackend.getSession();
+
+    if (!currentSession) {
+      renderAuthScreen();
+      return;
+    }
+
+    await startBuildScout();
+
+  } catch (error) {
+    console.error("BuildScout startup failed:", error);
+
+    renderAuthScreen(
+      "Unable to start BuildScout. Please refresh the page and try again."
+    );
+  }
+}
 function isDisplayLead(p) {
   const name = String(p.name || "").toLowerCase();
   const value = Number(p.estimated_value || 0);
@@ -378,5 +689,4 @@ function renderAdmin(main){
   <div class="panel"><h3>Production checklist</h3><p class="badge-good">● Real map enabled</p><p class="badge-good">● CSV / JSON permit import enabled</p><p class="badge-good">● Browser persistence enabled</p><p class="badge-warn">● Backend database not connected</p><p class="badge-warn">● Authentication not connected</p><p class="badge-warn">● Automated municipal ingestion not connected</p><p class="badge-warn">● Stripe not connected</p></div>`;
 }
 function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
-shell();renderPage();
-loadSupabaseProjects();
+bootBuildScout();
