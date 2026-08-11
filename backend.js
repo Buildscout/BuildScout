@@ -360,6 +360,7 @@ async function deleteAlert(userId, alertId) {
   projects: data || [],
   count: count ?? (data ? data.length : 0)
 };
+    }
   return {
     configured,
     init,
