@@ -849,15 +849,136 @@ async function renderAlerts(main) {
     <div class="pagehead">
       <div>
         <h1>Alerts</h1>
-        <div class="muted">Save project searches and opportunities you want to track.</div>
+        <div class="muted">
+          Create alerts for the construction opportunities you want to track.
+        </div>
       </div>
     </div>
 
     <div class="panel">
-      <h3>Recommended launch alert</h3>
-      <p>Multifamily • $10M+ • Planning / Permit Approved / Pre-construction • DFW</p>
-      <button class="btn primary" onclick="saveRecommendedAlert()">
-        Save alert
+      <h3>Create new alert</h3>
+
+      <div style="
+        display:grid;
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:12px;
+        margin-top:16px;
+      ">
+
+        <div>
+          <small class="muted">Alert name</small>
+          <input
+            id="alertName"
+            type="text"
+            placeholder="Example: Dallas Multifamily"
+            style="
+              width:100%;
+              box-sizing:border-box;
+              margin-top:6px;
+              padding:11px;
+              border-radius:8px;
+              border:1px solid #38505f;
+              background:#08131d;
+              color:white;
+            "
+          />
+        </div>
+
+        <div>
+          <small class="muted">Market / City</small>
+          <input
+            id="alertMarket"
+            type="text"
+            placeholder="Dallas, TX"
+            style="
+              width:100%;
+              box-sizing:border-box;
+              margin-top:6px;
+              padding:11px;
+              border-radius:8px;
+              border:1px solid #38505f;
+              background:#08131d;
+              color:white;
+            "
+          />
+        </div>
+
+        <div>
+          <small class="muted">Project type</small>
+          <select
+            id="alertProjectType"
+            style="
+              width:100%;
+              box-sizing:border-box;
+              margin-top:6px;
+              padding:11px;
+              border-radius:8px;
+              border:1px solid #38505f;
+              background:#08131d;
+              color:white;
+            "
+          >
+            <option value="">Any project type</option>
+            <option value="Multifamily">Multifamily</option>
+            <option value="Commercial">Commercial</option>
+            <option value="Industrial">Industrial</option>
+            <option value="Mixed-use">Mixed-use</option>
+            <option value="Residential">Residential</option>
+          </select>
+        </div>
+
+        <div>
+          <small class="muted">Minimum project value</small>
+          <input
+            id="alertMinValue"
+            type="number"
+            min="0"
+            step="100000"
+            placeholder="10000000"
+            style="
+              width:100%;
+              box-sizing:border-box;
+              margin-top:6px;
+              padding:11px;
+              border-radius:8px;
+              border:1px solid #38505f;
+              background:#08131d;
+              color:white;
+            "
+          />
+        </div>
+
+        <div>
+          <small class="muted">Project stage</small>
+          <select
+            id="alertStage"
+            style="
+              width:100%;
+              box-sizing:border-box;
+              margin-top:6px;
+              padding:11px;
+              border-radius:8px;
+              border:1px solid #38505f;
+              background:#08131d;
+              color:white;
+            "
+          >
+            <option value="">Any stage</option>
+            <option value="Planning">Planning</option>
+            <option value="Pre-construction">Pre-construction</option>
+            <option value="Permit approved">Permit approved</option>
+            <option value="Active">Active</option>
+          </select>
+        </div>
+
+      </div>
+
+      <button
+        class="btn primary"
+        style="margin-top:16px;"
+        onclick="saveCustomAlert()"
+      >
+        Create alert
       </button>
     </div>
 
@@ -874,7 +995,9 @@ async function renderAlerts(main) {
       container.innerHTML = `
         <div class="panel">
           <h3>Your alerts</h3>
-          <p class="muted">You haven't saved any alerts yet.</p>
+          <p class="muted">
+            You haven't created any alerts yet.
+          </p>
         </div>
       `;
       return;
@@ -884,37 +1007,69 @@ async function renderAlerts(main) {
       <div class="panel">
         <h3>Your alerts</h3>
 
-        ${alerts.map(a => `
-          <div style="padding:14px 0;border-bottom:1px solid rgba(255,255,255,.1)">
-            <div style="display:flex;justify-content:space-between;gap:16px;align-items:center;">
-              <div>
-                <b>${esc(a.name)}</b>
-                <div class="muted">
-                  ${a.is_active ? "Active" : "Paused"}
+        ${alerts.map(a => {
+          const f = a.filters || {};
+
+          const details = [
+            f.market || null,
+            f.project_type || null,
+            f.min_value
+              ? "$" + Number(f.min_value).toLocaleString() + "+"
+              : null,
+            f.stage || null
+          ].filter(Boolean).join(" • ");
+
+          return `
+            <div style="
+              padding:16px 0;
+              border-bottom:1px solid rgba(255,255,255,.1);
+            ">
+              <div style="
+                display:flex;
+                justify-content:space-between;
+                gap:16px;
+                align-items:center;
+              ">
+
+                <div>
+                  <b>${esc(a.name)}</b>
+
+                  <div class="muted" style="margin-top:4px;">
+                    ${details ? esc(details) : "All opportunities"}
+                  </div>
+
+                  <div
+                    class="muted"
+                    style="margin-top:4px;font-size:12px;"
+                  >
+                    ${a.is_active ? "Active" : "Paused"}
+                  </div>
                 </div>
-              </div>
 
-              <div style="display:flex;gap:8px;">
-                <button
-                  class="btn"
-                  onclick="toggleAlert('${a.id}', ${!a.is_active})"
-                >
-                  ${a.is_active ? "Pause" : "Activate"}
-                </button>
+                <div style="display:flex;gap:8px;">
+                  <button
+                    class="btn"
+                    onclick="toggleAlert('${a.id}', ${!a.is_active})"
+                  >
+                    ${a.is_active ? "Pause" : "Activate"}
+                  </button>
 
-                <button
-                  class="btn"
-                  onclick="removeAlert('${a.id}')"
-                >
-                  Delete
-                </button>
+                  <button
+                    class="btn"
+                    onclick="removeAlert('${a.id}')"
+                  >
+                    Delete
+                  </button>
+                </div>
+
               </div>
             </div>
-          </div>
-        `).join("")}
+          `;
+        }).join("")}
 
       </div>
     `;
+
   } catch (error) {
     console.error("Failed to load alerts:", error);
 
@@ -925,7 +1080,7 @@ async function renderAlerts(main) {
     `;
   }
 }
-async function saveRecommendedAlert() {
+async function saveCustomAlert() {
   try {
     const userId = currentSession?.user?.id;
 
@@ -934,28 +1089,48 @@ async function saveRecommendedAlert() {
       return;
     }
 
+    const name =
+      document.getElementById("alertName")?.value.trim();
+
+    const market =
+      document.getElementById("alertMarket")?.value.trim();
+
+    const projectType =
+      document.getElementById("alertProjectType")?.value || "";
+
+    const minValueRaw =
+      document.getElementById("alertMinValue")?.value || "";
+
+    const stage =
+      document.getElementById("alertStage")?.value || "";
+
+    if (!name) {
+      alert("Give this alert a name.");
+      return;
+    }
+
+    const filters = {};
+
+    if (market) filters.market = market;
+    if (projectType) filters.project_type = projectType;
+    if (minValueRaw) filters.min_value = Number(minValueRaw);
+    if (stage) filters.stage = stage;
+
     await BuildScoutBackend.saveAlert(
       userId,
-      "DFW Multifamily $10M+",
-      {
-        project_type: "Multifamily",
-        min_value: 10000000,
-        stages: [
-          "Planning",
-          "Permit approved",
-          "Pre-construction"
-        ],
-        market: "DFW"
-      }
+      name,
+      filters
     );
 
     const main = document.getElementById("main");
     await renderAlerts(main);
+
   } catch (error) {
     console.error("Failed to save alert:", error);
     alert("Unable to save alert. Please try again.");
   }
 }
+    
 
 async function toggleAlert(alertId, isActive) {
   try {
