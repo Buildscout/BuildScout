@@ -3,7 +3,7 @@ const CFG=window.BUILDSCOUT_CONFIG, DEMO=window.BUILDSCOUT_DEMO_PROJECTS;
 let imported=JSON.parse(localStorage.getItem("bs_imported")||"[]"); 
 let saved=JSON.parse(localStorage.getItem("bs_saved")||"[]");
 let pipeline=JSON.parse(localStorage.getItem("bs_pipeline")||"{}");
-let projects=[...imported];
+let projects=[];
 function isDisplayLead(p) {
   const name = String(p.name || "").toLowerCase();
   const value = Number(p.estimated_value || 0);
