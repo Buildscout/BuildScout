@@ -673,15 +673,67 @@ async function toggleSave(id) {
     alert("Unable to update saved project. Please try again.");
   }
 }
-function addPipeline(id){pipeline[id]="New Opportunity";persist();go("pipeline")}
+async function addPipeline(id) {
+  try {
+    const userId = currentSession?.user?.id;
+
+    if (!userId) {
+      renderAuthScreen("Please sign in again.");
+      return;
+    }
+
+    const stage = "New Opportunity";
+
+    await BuildScoutBackend.updatePipeline(userId, id, stage);
+
+    pipeline[id] = stage;
+
+    go("pipeline");
+  } catch (error) {
+    console.error("Failed to add project to pipeline:", error);
+    alert("Unable to add project to pipeline. Please try again.");
+  }
+}
 function renderPipeline(main){
   const stages=["New Opportunity","Researching","Contacted","Quoted"];
   main.innerHTML=`<div class="pagehead"><div><h1>Sales Pipeline</h1><div class="muted">Move projects from discovery toward a sale.</div></div></div><div class="pipeline">
     ${stages.map(s=>`<div class="column"><h3>${s}</h3>${projects.filter(p=>(pipeline[p.id]||"")===s).map(p=>`<div class="lead"><b>${esc(p.name)}</b><div class="muted">${money(p.value)}</div><button class="btn secondary" style="margin-top:8px" onclick="advance('${p.id}')">Advance →</button></div>`).join("")}</div>`).join("")}
   </div>`;
 }
-function advance(id){
-  const s=["New Opportunity","Researching","Contacted","Quoted"];let i=s.indexOf(pipeline[id]);pipeline[id]=s[Math.min(i+1,s.length-1)];persist();renderPage();
+async function advance(id) {
+  try {
+    const userId = currentSession?.user?.id;
+
+    if (!userId) {
+      renderAuthScreen("Please sign in again.");
+      return;
+    }
+
+    const stages = [
+      "New Opportunity",
+      "Researching",
+      "Contacted",
+      "Quoted"
+    ];
+
+    const currentIndex = stages.indexOf(pipeline[id]);
+
+    if (currentIndex === -1) {
+      return;
+    }
+
+    const nextIndex = Math.min(currentIndex + 1, stages.length - 1);
+    const nextStage = stages[nextIndex];
+
+    await BuildScoutBackend.updatePipeline(userId, id, nextStage);
+
+    pipeline[id] = nextStage;
+
+    renderPage();
+  } catch (error) {
+    console.error("Failed to advance pipeline:", error);
+    alert("Unable to update pipeline. Please try again.");
+  }
 }
 function renderAlerts(main){
   main.innerHTML=`<div class="pagehead"><div><h1>Alerts</h1><div class="muted">MVP alert preferences. Automated email delivery comes with the backend.</div></div></div>
