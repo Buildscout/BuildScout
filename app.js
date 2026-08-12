@@ -400,9 +400,11 @@ async function loadSupabaseProjects() {
       source: p.source_name,
       score: calculateOpportunityScore(p),
       developer: p.developer,
-      gc: p.general_contractor,
-      street_address: p.street_address,
-      zip_code: p.zip_code
+    gc: p.general_contractor,
+street_address: p.street_address,
+zip_code: p.zip_code,
+created_at: p.created_at,
+last_verified: p.last_verified
     }));
 
     projects = [...supabaseProjects];
@@ -427,7 +429,7 @@ function persist(){
 }
 function money(n){if(!n)return "—"; return n>=1e6?`$${(n/1e6).toFixed(1)}M`:`$${Number(n).toLocaleString()}`}
 function calculateOpportunityScore(p){
-  let score = 20;
+  let score = 0;
 
   const value = Number(p.estimated_value || p.value || 0);
   const stage = String(p.stage || "").toLowerCase();
@@ -471,7 +473,18 @@ function calculateOpportunityScore(p){
   // PERMIT / LOCATION DATA
   if (p.permit_number) score += 3;
   if (p.street_address) score += 2;
+// DATA FRESHNESS
+const freshDate = p.last_verified || p.created_at;
 
+if (freshDate) {
+  const ageDays =
+    (Date.now() - new Date(freshDate).getTime()) /
+    (1000 * 60 * 60 * 24);
+
+  if (ageDays <= 30) score += 12;
+  else if (ageDays <= 90) score += 8;
+  else if (ageDays <= 180) score += 4;
+}
   // LOCATION QUALITY
   if (
     Number.isFinite(Number(p.latitude || p.lat)) &&
@@ -884,11 +897,7 @@ const locationPoints =
   Number.isFinite(Number(p.lat)) &&
   Number.isFinite(Number(p.lon))
     ? 5
-    : p.street_address
-      ? 3
-      : p.city
-        ? 1
-        : 0;
+    : 0;
 
 const sourcePoints =
   p.source && p.source !== "Unknown source"
@@ -896,8 +905,9 @@ const sourcePoints =
     : 0;
 
 const teamCompletenessPoints =
-  (p.developer ? 3 : 0) +
-  ((p.general_contractor || p.gc) ? 3 : 0);
+  (p.developer && (p.general_contractor || p.gc))
+    ? 3
+    : 0;
 
 const knownPoints =
   valuePoints +
@@ -913,7 +923,6 @@ const knownPoints =
   teamCompletenessPoints;
 
 const basePoints = Math.max(0, score - knownPoints);
-
 
 let opportunityLabel = "WATCH";
 let opportunityText =
