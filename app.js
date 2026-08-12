@@ -427,12 +427,13 @@ function persist(){
 }
 function money(n){if(!n)return "—"; return n>=1e6?`$${(n/1e6).toFixed(1)}M`:`$${Number(n).toLocaleString()}`}
 function calculateOpportunityScore(p){
-  let score = 35;
+  let score = 20;
 
   const value = Number(p.estimated_value || p.value || 0);
   const stage = String(p.stage || "").toLowerCase();
   const type = String(p.project_type || p.type || "").toLowerCase();
 
+  // PROJECT VALUE
   if (value >= 25000000) score += 20;
   else if (value >= 10000000) score += 17;
   else if (value >= 5000000) score += 14;
@@ -440,6 +441,7 @@ function calculateOpportunityScore(p){
   else if (value >= 500000) score += 6;
   else if (value > 0) score += 3;
 
+  // PROJECT STAGE
   if (
     stage.includes("pre-construction") ||
     stage.includes("preconstruction")
@@ -455,16 +457,41 @@ function calculateOpportunityScore(p){
     score += 8;
   }
 
+  // PROJECT TYPE
   if (type.includes("multifamily")) score += 10;
+  else if (type.includes("mixed")) score += 9;
   else if (type.includes("commercial")) score += 8;
   else if (type.includes("industrial")) score += 8;
-  else if (type.includes("mixed")) score += 9;
   else if (type.includes("residential")) score += 5;
 
+  // PROJECT TEAM
   if (p.general_contractor || p.gc) score += 5;
   if (p.developer) score += 5;
+
+  // PERMIT / LOCATION DATA
   if (p.permit_number) score += 3;
   if (p.street_address) score += 2;
+
+  // LOCATION QUALITY
+  if (
+    Number.isFinite(Number(p.latitude || p.lat)) &&
+    Number.isFinite(Number(p.longitude || p.lon))
+  ) {
+    score += 5;
+  }
+
+  // SOURCE QUALITY
+  if (p.source_name || p.source) {
+    score += 5;
+  }
+
+  // TEAM COMPLETENESS BONUS
+  if (
+    (p.general_contractor || p.gc) &&
+    p.developer
+  ) {
+    score += 3;
+  }
 
   return Math.min(100, Math.max(0, Math.round(score)));
 }
@@ -814,17 +841,21 @@ else if (value >= 500000) valuePoints = 6;
 else if (value > 0) valuePoints = 3;
 
 let stagePoints = 0;
+
 if (
   stageText.includes("pre-construction") ||
-  stageText.includes("planning")
+  stageText.includes("preconstruction")
 ) {
+  stagePoints = 20;
+} else if (stageText.includes("permit approved")) {
+  stagePoints = 18;
+} else if (stageText.includes("planning")) {
   stagePoints = 17;
 } else if (stageText.includes("permit")) {
   stagePoints = 14;
 } else if (stageText.includes("construction")) {
   stagePoints = 8;
 }
-
 let typePoints = 0;
 if (typeText.includes("multifamily")) typePoints = 10;
 else if (typeText.includes("commercial")) typePoints = 8;
