@@ -837,6 +837,37 @@ const developerPoints = p.developer ? 5 : 0;
 const permitPoints = p.permit_number ? 3 : 0;
 const addressPoints = p.street_address ? 2 : 0;
 
+const freshDate = p.last_verified || p.created_at;
+let freshnessPoints = 0;
+
+if (freshDate) {
+  const ageDays =
+    (Date.now() - new Date(freshDate).getTime()) / (1000 * 60 * 60 * 24);
+
+  if (ageDays <= 30) freshnessPoints = 12;
+  else if (ageDays <= 90) freshnessPoints = 8;
+  else if (ageDays <= 180) freshnessPoints = 4;
+}
+
+const locationPoints =
+  Number.isFinite(Number(p.lat)) &&
+  Number.isFinite(Number(p.lon))
+    ? 5
+    : p.street_address
+      ? 3
+      : p.city
+        ? 1
+        : 0;
+
+const sourcePoints =
+  p.source && p.source !== "Unknown source"
+    ? 5
+    : 0;
+
+const teamCompletenessPoints =
+  (p.developer ? 3 : 0) +
+  ((p.general_contractor || p.gc) ? 3 : 0);
+
 const knownPoints =
   valuePoints +
   stagePoints +
@@ -844,9 +875,14 @@ const knownPoints =
   contractorPoints +
   developerPoints +
   permitPoints +
-  addressPoints;
+  addressPoints +
+  freshnessPoints +
+  locationPoints +
+  sourcePoints +
+  teamCompletenessPoints;
 
 const basePoints = Math.max(0, score - knownPoints);
+
 
 let opportunityLabel = "WATCH";
 let opportunityText =
@@ -968,18 +1004,31 @@ if (score >= 90) {
       <small>Address data</small>
       <b>+${addressPoints}</b>
     </div>
+<div class="stat">
+  <small>Data freshness</small>
+  <b>+${freshnessPoints}</b>
+</div>
 
-    ${
-      basePoints > 0
-        ? `
-          <div class="stat">
-            <small>Other signals</small>
-            <b>+${basePoints}</b>
-          </div>
-        `
-        : ""
-    }
+<div class="stat">
+  <small>Location quality</small>
+  <b>+${locationPoints}</b>
+</div>
 
+<div class="stat">
+  <small>Source quality</small>
+  <b>+${sourcePoints}</b>
+</div>
+
+<div class="stat">
+  <small>Team completeness</small>
+  <b>+${teamCompletenessPoints}</b>
+</div>
+
+<div class="stat">
+  <small>Other signals</small>
+  <b>+${basePoints}</b>
+</div>
+  
   </div>
 
   <div style="
