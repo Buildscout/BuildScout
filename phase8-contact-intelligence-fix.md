@@ -1,0 +1,1 @@
+Phase 8 follow-up hotfix: integrate contact cleanup into the Copilot renderer and prevent duplicate Copilot cards caused by mutation observer re-rendering.
