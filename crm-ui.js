@@ -11,6 +11,7 @@
   function field(label,id,type='text',placeholder=''){return `<label class="crm-field"><span>${label}</span><input id="${id}" type="${type}" placeholder="${placeholder}"></label>`;}
   function selectField(label,id,options){return `<label class="crm-field"><span>${label}</span><select id="${id}">${options.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')}</select></label>`;}
   function localDate(v){if(!v)return'';try{return new Date(v).toISOString().slice(0,10)}catch{return''}}
+  function contactName(c){return [c.first_name,c.last_name].filter(Boolean).join(' ').trim()||c.company_name||'Contact';}
 
   async function open(projectId){
     const [p,uid]=await Promise.all([project(projectId),userId()]); if(!p||!uid)return;
@@ -23,13 +24,13 @@
     const body=document.getElementById('crm-command-body');if(!body)return;
     body.innerHTML=`<div class="crm-metrics"><div class="stat"><small>Opportunity value</small><b>${money(pipe.opportunity_value||p.estimated_value)}</b></div><div class="stat"><small>Win probability</small><b>${Number(pipe.probability||0)}%</b></div><div class="stat"><small>Sales stage</small><b>${esc(pipe.stage||'New Opportunity')}</b></div><div class="stat"><small>Next action</small><b>${esc(pipe.next_action||'Set next step')}</b></div></div>
     <div class="crm-grid"><section class="panel"><div class="crm-section-head"><h3>Opportunity</h3><span>Turn project intelligence into revenue</span></div><div class="crm-form-grid">${selectField('Stage','crm-stage',stages)}${field('Opportunity value','crm-value','number')}${field('Probability %','crm-prob','number')}${field('Expected close','crm-close','date')}${field('Next action','crm-next','text','Call GC, price plans, follow up…')}${field('Follow-up','crm-follow','date')}</div><label class="crm-field"><span>Sales notes</span><textarea id="crm-notes" placeholder="Scope, competitors, bid strategy, decision makers…">${esc(pipe.notes||'')}</textarea></label><button class="btn primary" onclick="BuildScoutCRM.saveOpportunity('${projectId}')">Save opportunity</button></section>
-    <section class="panel"><div class="crm-section-head"><h3>Project contacts</h3><span>${contacts.length} relationship${contacts.length===1?'':'s'}</span></div><div class="crm-contact-list">${contacts.map(c=>`<div class="crm-contact"><div><b>${esc(c.name||c.company||'Contact')}</b><div class="muted">${esc([c.role,c.company].filter(Boolean).join(' • '))}</div><div>${esc(c.email||'')}${c.phone?` • ${esc(c.phone)}`:''}</div></div>${c.is_primary?'<span class="tag">PRIMARY</span>':''}</div>`).join('')||'<div class="muted">No contacts yet. Add the GC, owner, estimator, architect, or decision maker.</div>'}</div><div class="crm-form-grid">${field('Name','crm-cname')}${field('Company','crm-company')}${field('Role','crm-role','text','GC / Estimator / Owner')}${field('Email','crm-email','email')}${field('Phone','crm-phone','tel')}</div><label class="crm-field"><span><input id="crm-primary" type="checkbox" style="width:auto"> Primary contact</span></label><button class="btn secondary" onclick="BuildScoutCRM.addContact('${projectId}')">+ Add contact</button></section>
+    <section class="panel"><div class="crm-section-head"><h3>Project contacts</h3><span>${contacts.length} relationship${contacts.length===1?'':'s'}</span></div><div class="crm-contact-list">${contacts.map(c=>`<div class="crm-contact"><div><b>${esc(contactName(c))}</b><div class="muted">${esc([c.role,c.company_name].filter(Boolean).join(' • '))}</div><div>${esc(c.email||'')}${c.phone?` • ${esc(c.phone)}`:''}</div></div>${c.is_primary?'<span class="tag">PRIMARY</span>':''}</div>`).join('')||'<div class="muted">No contacts yet. Add the GC, owner, estimator, architect, or decision maker.</div>'}</div><div class="crm-form-grid">${field('First name','crm-cfirst')}${field('Last name','crm-clast')}${field('Company','crm-company')}${field('Role','crm-role','text','GC / Estimator / Owner')}${field('Email','crm-email','email')}${field('Phone','crm-phone','tel')}</div><label class="crm-field"><span><input id="crm-primary" type="checkbox" style="width:auto"> Primary contact</span></label><button class="btn secondary" onclick="BuildScoutCRM.addContact('${projectId}')">+ Add contact</button></section>
     <section class="panel crm-wide"><div class="crm-section-head"><h3>Activity timeline</h3><span>Every touchpoint in one place</span></div><div class="crm-quick-actions"><button onclick="BuildScoutCRM.log('${projectId}','call')">Log call</button><button onclick="BuildScoutCRM.log('${projectId}','email')">Log email</button><button onclick="BuildScoutCRM.log('${projectId}','meeting')">Log meeting</button><button onclick="BuildScoutCRM.log('${projectId}','note')">Add note</button><button onclick="BuildScoutCRM.log('${projectId}','task')">Add task</button></div><div class="crm-timeline">${activities.map(a=>`<div class="crm-activity"><div class="crm-dot"></div><div><b>${esc((a.activity_type||'activity').toUpperCase())}</b><div>${esc(a.subject||a.body||'CRM activity')}</div><small>${a.created_at?new Date(a.created_at).toLocaleString():''}${a.due_at?` • Due ${new Date(a.due_at).toLocaleDateString()}`:''}</small></div></div>`).join('')||'<div class="muted">No activity yet. Your first outreach will appear here.</div>'}</div></section></div>`;
     const vals={'crm-stage':pipe.stage||'New Opportunity','crm-value':pipe.opportunity_value||p.estimated_value||'','crm-prob':pipe.probability??'','crm-close':localDate(pipe.expected_close_date),'crm-next':pipe.next_action||'','crm-follow':localDate(pipe.follow_up_at)};Object.entries(vals).forEach(([id,v])=>{const e=document.getElementById(id);if(e)e.value=v;});
   }
 
   async function saveOpportunity(projectId){const uid=await userId();const val=id=>document.getElementById(id)?.value;const follow=val('crm-follow')?new Date(`${val('crm-follow')}T12:00:00`).toISOString():null;await B().updatePipeline(uid,projectId,val('crm-stage'),val('crm-notes'),follow,{opportunity_value:Number(val('crm-value')||0),probability:Number(val('crm-prob')||0),expected_close_date:val('crm-close')||null,next_action:val('crm-next')||null,lost_reason:null});await open(projectId);}
-  async function addContact(projectId){const uid=await userId();const val=id=>document.getElementById(id)?.value?.trim();if(!val('crm-cname')&&!val('crm-company'))return;await B().saveContact({user_id:uid,project_id:projectId,name:val('crm-cname'),company:val('crm-company'),role:val('crm-role'),email:val('crm-email'),phone:val('crm-phone'),is_primary:Boolean(document.getElementById('crm-primary')?.checked)});await open(projectId);}
+  async function addContact(projectId){const uid=await userId();const val=id=>document.getElementById(id)?.value?.trim();if(!val('crm-cfirst')&&!val('crm-clast')&&!val('crm-company'))return;await B().saveContact({user_id:uid,project_id:projectId,first_name:val('crm-cfirst'),last_name:val('crm-clast'),company_name:val('crm-company'),role:val('crm-role'),email:val('crm-email'),phone:val('crm-phone'),is_primary:Boolean(document.getElementById('crm-primary')?.checked)});await open(projectId);}
   async function log(projectId,type){const uid=await userId();const text=prompt(`${type[0].toUpperCase()+type.slice(1)} details:`);if(!text)return;const activity={user_id:uid,project_id:projectId,activity_type:type,subject:text,body:text};if(type==='task'){const due=prompt('Due date (YYYY-MM-DD), optional:');if(due)activity.due_at=new Date(`${due}T12:00:00`).toISOString();}await B().addActivity(activity);await open(projectId);}
 
   async function renderPipeline(main){
@@ -39,8 +40,35 @@
     }catch(e){main.innerHTML=`<div class="panel">Pipeline could not load: ${esc(e.message)}</div>`;}
   }
 
-  function mountButtons(){document.querySelectorAll('.modalbox').forEach(box=>{if(box.closest('#crm-modal')||box.querySelector('[data-crm-launch]'))return;const title=box.querySelector('h1')?.textContent?.trim();if(!title)return;(async()=>{const p=(await projects()).find(x=>String(x.name||'').trim()===title);if(!p)return;const buttons=box.querySelectorAll('.btn');if(!buttons.length)return;const row=buttons[buttons.length-1].parentElement;if(!row)return;const b=document.createElement('button');b.className='btn primary';b.dataset.crmLaunch='1';b.textContent='Sales CRM';b.onclick=()=>open(p.id);row.appendChild(b);})();});}
-  new MutationObserver(()=>mountButtons()).observe(document.documentElement,{childList:true,subtree:true});
+  async function resolveProjectForModal(box){
+    const ps=await projects();
+    const title=box.querySelector('h1')?.textContent?.trim();
+    if(title){const exact=ps.find(x=>String(x.name||'').trim()===title);if(exact)return exact;}
+    const text=box.textContent||'';
+    const byPermit=ps.find(x=>x.permit_number&&text.includes(String(x.permit_number)));
+    if(byPermit)return byPermit;
+    return null;
+  }
+
+  async function mountButtons(){
+    for(const box of document.querySelectorAll('.modalbox')){
+      if(box.closest('#crm-modal')||box.querySelector('[data-crm-launch]'))continue;
+      const p=await resolveProjectForModal(box);if(!p)continue;
+      const plansButton=[...box.querySelectorAll('button')].find(b=>b.textContent.trim()==='Plans & Specs');
+      const actionRow=plansButton?.parentElement||[...box.querySelectorAll('button')].find(b=>b.textContent.includes('Add to pipeline'))?.parentElement;
+      if(!actionRow)continue;
+      const b=document.createElement('button');
+      b.className='btn primary';
+      b.dataset.crmLaunch='1';
+      b.textContent='Sales CRM';
+      b.onclick=()=>open(p.id);
+      actionRow.appendChild(b);
+    }
+  }
+  let mountTimer=null;
+  function scheduleMount(){clearTimeout(mountTimer);mountTimer=setTimeout(()=>mountButtons().catch(console.error),40);}
+  new MutationObserver(scheduleMount).observe(document.documentElement,{childList:true,subtree:true});
+  window.addEventListener('load',scheduleMount);
   window.renderPipeline=renderPipeline;
-  window.BuildScoutCRM={open,saveOpportunity,addContact,log};
+  window.BuildScoutCRM={open,saveOpportunity,addContact,log,mountButtons};
 })();
