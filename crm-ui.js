@@ -1,0 +1,74 @@
+(() => {
+  const B=()=>window.BuildScoutBackend;
+  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const money=v=>Number(v||0).toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0});
+  const stages=['New Opportunity','Researching','Contacted','Qualified','Bidding','Quote Sent','Negotiation','Won','Lost'];
+  let projectCache=[];
+  async function session(){return B().getSession();}
+  async function userId(){return (await session())?.user?.id||null;}
+  async function projects(){if(!projectCache.length)projectCache=await B().getProjects();return projectCache;}
+  async function project(id){return (await projects()).find(p=>String(p.id)===String(id));}
+  function field(label,id,type='text',placeholder=''){return `<label class="crm-field"><span>${label}</span><input id="${id}" type="${type}" placeholder="${placeholder}"></label>`;}
+  function selectField(label,id,options){return `<label class="crm-field"><span>${label}</span><select id="${id}">${options.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')}</select></label>`;}
+  function localDate(v){if(!v)return'';try{return new Date(v).toISOString().slice(0,10)}catch{return''}}
+  function contactName(c){return [c.first_name,c.last_name].filter(Boolean).join(' ').trim()||c.company_name||'Contact';}
+
+  async function open(projectId){
+    const [p,uid]=await Promise.all([project(projectId),userId()]); if(!p||!uid)return;
+    document.getElementById('crm-modal')?.remove();
+    document.body.insertAdjacentHTML('beforeend',`<div class="modal" id="crm-modal"><div class="modalbox crm-command"><button class="close" onclick="document.getElementById('crm-modal').remove()">×</button><div class="crm-kicker">SALES COMMAND CENTER</div><h1>${esc(p.name||'Construction opportunity')}</h1><div class="muted">${esc([p.street_address,p.city,p.zip_code].filter(Boolean).join(', '))}</div><div id="crm-command-body" class="crm-loading">Loading CRM intelligence…</div></div></div>`);
+    try{const [contacts,activities,pipes]=await Promise.all([B().getContacts(uid,projectId),B().getActivities(uid,projectId),B().getPipeline(uid)]);render(projectId,p,contacts,activities,(pipes||[]).find(x=>String(x.project_id)===String(projectId))||{});}catch(e){document.getElementById('crm-command-body').innerHTML=`<div class="panel">CRM could not load: ${esc(e.message)}</div>`;}
+  }
+
+  function render(projectId,p,contacts,activities,pipe){
+    const body=document.getElementById('crm-command-body');if(!body)return;
+    body.innerHTML=`<div class="crm-metrics"><div class="stat"><small>Opportunity value</small><b>${money(pipe.opportunity_value||p.estimated_value)}</b></div><div class="stat"><small>Win probability</small><b>${Number(pipe.probability||0)}%</b></div><div class="stat"><small>Sales stage</small><b>${esc(pipe.stage||'New Opportunity')}</b></div><div class="stat"><small>Next action</small><b>${esc(pipe.next_action||'Set next step')}</b></div></div>
+    <div class="crm-grid"><section class="panel"><div class="crm-section-head"><h3>Opportunity</h3><span>Turn project intelligence into revenue</span></div><div class="crm-form-grid">${selectField('Stage','crm-stage',stages)}${field('Opportunity value','crm-value','number')}${field('Probability %','crm-prob','number')}${field('Expected close','crm-close','date')}${field('Next action','crm-next','text','Call GC, price plans, follow up…')}${field('Follow-up','crm-follow','date')}</div><label class="crm-field"><span>Sales notes</span><textarea id="crm-notes" placeholder="Scope, competitors, bid strategy, decision makers…">${esc(pipe.notes||'')}</textarea></label><button class="btn primary" onclick="BuildScoutCRM.saveOpportunity('${projectId}')">Save opportunity</button></section>
+    <section class="panel"><div class="crm-section-head"><h3>Project contacts</h3><span>${contacts.length} relationship${contacts.length===1?'':'s'}</span></div><div class="crm-contact-list">${contacts.map(c=>`<div class="crm-contact"><div><b>${esc(contactName(c))}</b><div class="muted">${esc([c.role,c.company_name].filter(Boolean).join(' • '))}</div><div>${esc(c.email||'')}${c.phone?` • ${esc(c.phone)}`:''}</div></div>${c.is_primary?'<span class="tag">PRIMARY</span>':''}</div>`).join('')||'<div class="muted">No contacts yet. Add the GC, owner, estimator, architect, or decision maker.</div>'}</div><div class="crm-form-grid">${field('First name','crm-cfirst')}${field('Last name','crm-clast')}${field('Company','crm-company')}${field('Role','crm-role','text','GC / Estimator / Owner')}${field('Email','crm-email','email')}${field('Phone','crm-phone','tel')}</div><label class="crm-field"><span><input id="crm-primary" type="checkbox" style="width:auto"> Primary contact</span></label><button class="btn secondary" onclick="BuildScoutCRM.addContact('${projectId}')">+ Add contact</button></section>
+    <section class="panel crm-wide"><div class="crm-section-head"><h3>Activity timeline</h3><span>Every touchpoint in one place</span></div><div class="crm-quick-actions"><button onclick="BuildScoutCRM.log('${projectId}','call')">Log call</button><button onclick="BuildScoutCRM.log('${projectId}','email')">Log email</button><button onclick="BuildScoutCRM.log('${projectId}','meeting')">Log meeting</button><button onclick="BuildScoutCRM.log('${projectId}','note')">Add note</button><button onclick="BuildScoutCRM.log('${projectId}','task')">Add task</button></div><div class="crm-timeline">${activities.map(a=>`<div class="crm-activity"><div class="crm-dot"></div><div><b>${esc((a.activity_type||'activity').toUpperCase())}</b><div>${esc(a.subject||a.body||'CRM activity')}</div><small>${a.created_at?new Date(a.created_at).toLocaleString():''}${a.due_at?` • Due ${new Date(a.due_at).toLocaleDateString()}`:''}</small></div></div>`).join('')||'<div class="muted">No activity yet. Your first outreach will appear here.</div>'}</div></section></div>`;
+    const vals={'crm-stage':pipe.stage||'New Opportunity','crm-value':pipe.opportunity_value||p.estimated_value||'','crm-prob':pipe.probability??'','crm-close':localDate(pipe.expected_close_date),'crm-next':pipe.next_action||'','crm-follow':localDate(pipe.follow_up_at)};Object.entries(vals).forEach(([id,v])=>{const e=document.getElementById(id);if(e)e.value=v;});
+  }
+
+  async function saveOpportunity(projectId){const uid=await userId();const val=id=>document.getElementById(id)?.value;const follow=val('crm-follow')?new Date(`${val('crm-follow')}T12:00:00`).toISOString():null;await B().updatePipeline(uid,projectId,val('crm-stage'),val('crm-notes'),follow,{opportunity_value:Number(val('crm-value')||0),probability:Number(val('crm-prob')||0),expected_close_date:val('crm-close')||null,next_action:val('crm-next')||null,lost_reason:null});await open(projectId);}
+  async function addContact(projectId){const uid=await userId();const val=id=>document.getElementById(id)?.value?.trim();if(!val('crm-cfirst')&&!val('crm-clast')&&!val('crm-company'))return;await B().saveContact({user_id:uid,project_id:projectId,first_name:val('crm-cfirst'),last_name:val('crm-clast'),company_name:val('crm-company'),role:val('crm-role'),email:val('crm-email'),phone:val('crm-phone'),is_primary:Boolean(document.getElementById('crm-primary')?.checked)});await open(projectId);}
+  async function log(projectId,type){const uid=await userId();const text=prompt(`${type[0].toUpperCase()+type.slice(1)} details:`);if(!text)return;const activity={user_id:uid,project_id:projectId,activity_type:type,subject:text,body:text};if(type==='task'){const due=prompt('Due date (YYYY-MM-DD), optional:');if(due)activity.due_at=new Date(`${due}T12:00:00`).toISOString();}await B().addActivity(activity);await open(projectId);}
+
+  async function renderPipeline(main){
+    const uid=await userId();if(!uid)return;main.innerHTML='<div class="pagehead"><div><h1>Sales Pipeline</h1><div class="muted">Loading construction opportunities…</div></div></div>';
+    try{const [ps,pipes]=await Promise.all([projects(),B().getPipeline(uid)]);const byId=Object.fromEntries(ps.map(p=>[String(p.id),p]));const active=pipes.filter(x=>byId[String(x.project_id)]);const weighted=active.reduce((sum,x)=>sum+(Number(x.opportunity_value||byId[String(x.project_id)]?.estimated_value||0)*Number(x.probability||0)/100),0);const total=active.reduce((sum,x)=>sum+Number(x.opportunity_value||byId[String(x.project_id)]?.estimated_value||0),0);
+      main.innerHTML=`<div class="pagehead"><div><h1>Sales Pipeline</h1><div class="muted">Manage every construction opportunity from discovery to close.</div></div></div><div class="statline"><div class="stat"><small>Open opportunities</small><b>${active.filter(x=>!['Won','Lost'].includes(x.stage)).length}</b></div><div class="stat"><small>Pipeline value</small><b>${money(total)}</b></div><div class="stat"><small>Weighted pipeline</small><b>${money(weighted)}</b></div><div class="stat"><small>Won</small><b>${active.filter(x=>x.stage==='Won').length}</b></div></div><div class="pipeline crm-pipeline">${stages.map(stage=>`<div class="column"><h3>${stage} <span class="muted">${active.filter(x=>x.stage===stage).length}</span></h3>${active.filter(x=>x.stage===stage).map(x=>{const p=byId[String(x.project_id)];return `<div class="lead"><div class="crm-pipe-score">${Number(p.opportunity_score||0)}/100</div><b>${esc(p.name||'Unnamed project')}</b><div class="muted">${esc(p.city||'')}</div><div class="crm-pipe-money">${money(x.opportunity_value||p.estimated_value)}</div><div class="muted">${Number(x.probability||0)}% probability</div>${x.next_action?`<div class="crm-next">Next: ${esc(x.next_action)}</div>`:''}<button class="btn primary" onclick="BuildScoutCRM.open('${p.id}')">Open CRM</button></div>`}).join('')||'<div class="muted">No opportunities</div>'}</div>`).join('')}</div>`;
+    }catch(e){main.innerHTML=`<div class="panel">Pipeline could not load: ${esc(e.message)}</div>`;}
+  }
+
+  async function resolveProjectForModal(box){
+    const ps=await projects();
+    const title=box.querySelector('h1')?.textContent?.trim();
+    if(title){const exact=ps.find(x=>String(x.name||'').trim()===title);if(exact)return exact;}
+    const text=box.textContent||'';
+    const byPermit=ps.find(x=>x.permit_number&&text.includes(String(x.permit_number)));
+    if(byPermit)return byPermit;
+    return null;
+  }
+
+  async function mountButtons(){
+    for(const box of document.querySelectorAll('.modalbox')){
+      if(box.closest('#crm-modal')||box.querySelector('[data-crm-launch]'))continue;
+      const p=await resolveProjectForModal(box);if(!p)continue;
+      const plansButton=[...box.querySelectorAll('button')].find(b=>b.textContent.trim()==='Plans & Specs');
+      const actionRow=plansButton?.parentElement||[...box.querySelectorAll('button')].find(b=>b.textContent.includes('Add to pipeline'))?.parentElement;
+      if(!actionRow)continue;
+      const b=document.createElement('button');
+      b.className='btn primary';
+      b.dataset.crmLaunch='1';
+      b.textContent='Sales CRM';
+      b.onclick=()=>open(p.id);
+      actionRow.appendChild(b);
+    }
+  }
+  let mountTimer=null;
+  function scheduleMount(){clearTimeout(mountTimer);mountTimer=setTimeout(()=>mountButtons().catch(console.error),40);}
+  new MutationObserver(scheduleMount).observe(document.documentElement,{childList:true,subtree:true});
+  window.addEventListener('load',scheduleMount);
+  window.renderPipeline=renderPipeline;
+  window.BuildScoutCRM={open,saveOpportunity,addContact,log,mountButtons};
+})();
