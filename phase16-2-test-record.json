@@ -1,0 +1,9 @@
+{
+  "fixture_only": true,
+  "production_eligible": false,
+  "purpose": "schema test only",
+  "permit_number": "TEST-NOT-A-REAL-PERMIT",
+  "street_address": "TEST ONLY",
+  "description": "DallasNow adapter fixture. Never display as a project.",
+  "source_url": "https://aca-prod.accela.com/DALLASTX"
+}
