@@ -1,0 +1,1 @@
+Phase 16.2 adds the DallasNow normalization/validation adapter and a server connector boundary. The adapter is intentionally not wired into automatic ingestion until an official public or authorized DallasNow machine-readable feed is available. This prevents BuildScout from fabricating or scraping production projects.
