@@ -1,0 +1,5 @@
+{
+  "required": ["source_id", "source_url", "street_address", "description"],
+  "flags": {"source_verified": true, "source_current": true, "production_eligible": true},
+  "reject": ["demo", "fixture_only", "missing_source_id", "missing_source_url", "missing_address"]
+}
