@@ -1,0 +1,87 @@
+/* Phase 15 Contact Research Engine — responsive production layout */
+#bs15 .bs15-shell {
+  width: min(1500px, 96vw) !important;
+  max-width: 1500px;
+  padding: clamp(18px, 2vw, 30px) !important;
+  overflow-x: hidden;
+}
+
+#bs15 .bs15-grid {
+  grid-template-columns: minmax(0, 2fr) minmax(360px, 1fr) !important;
+  align-items: start;
+  gap: 20px !important;
+}
+
+#bs15 .bs15-panel,
+#bs15 .bs15-form,
+#bs15 .bs15-form label,
+#bs15 .bs15-form input,
+#bs15 .bs15-form select {
+  min-width: 0;
+}
+
+#bs15 .bs15-form {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+  gap: 14px 12px !important;
+}
+
+#bs15 .bs15-form input,
+#bs15 .bs15-form select {
+  width: 100% !important;
+  min-height: 44px;
+  font-size: 15px;
+}
+
+#bs15 .bs15-searches {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+#bs15 .bs15-search {
+  min-width: 0;
+}
+
+#bs15 .bs15-search span {
+  max-width: 100%;
+}
+
+#bs15 .bs15-wide {
+  grid-column: 1 / -1 !important;
+}
+
+@media (max-width: 1100px) {
+  #bs15 .bs15-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  #bs15 .bs15-shell {
+    width: min(980px, 96vw) !important;
+  }
+}
+
+@media (max-width: 700px) {
+  #bs15 {
+    padding: 8px !important;
+    align-items: flex-start !important;
+  }
+
+  #bs15 .bs15-shell {
+    width: 100% !important;
+    max-height: 98vh !important;
+    border-radius: 14px !important;
+    padding: 16px !important;
+  }
+
+  #bs15 .bs15-head h2 {
+    font-size: clamp(25px, 8vw, 34px) !important;
+    line-height: 1.05;
+  }
+
+  #bs15 .bs15-form,
+  #bs15 .bs15-searches {
+    grid-template-columns: 1fr !important;
+  }
+
+  #bs15 .bs15-wide {
+    grid-column: auto !important;
+  }
+}
