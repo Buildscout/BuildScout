@@ -1,0 +1,1 @@
+Use public, licensed, or otherwise authorized data access. Do not depend on bypassing portal access controls.
