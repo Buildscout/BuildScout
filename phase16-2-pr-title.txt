@@ -1,0 +1,1 @@
+Phase 16.2: Add DallasNow verified-source adapter
