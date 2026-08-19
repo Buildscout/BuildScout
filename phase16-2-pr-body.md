@@ -1,0 +1,1 @@
+Establishes the current DallasNow source adapter and strict production verification boundary. It does not claim or fake a live DallasNow feed. Automated retrieval remains disabled until a documented public or authorized machine-readable source is configured. This gives BuildScout the integrity layer needed before real Dallas inventory and nationwide expansion.
