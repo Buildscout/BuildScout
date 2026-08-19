@@ -3,6 +3,8 @@ window.BuildScoutDallasNow = (() => {
     id: "dallasnow",
     name: "City of Dallas DallasNow",
     jurisdiction: "Dallas, TX",
+    country: "US",
+    authority: "City of Dallas",
     portalUrl: "https://aca-prod.accela.com/DALLASTX",
     officialInfoUrl: "https://dallascityhall.com/departments/sustainabledevelopment/Pages/DallasNow.aspx",
     current: true,
@@ -10,27 +12,17 @@ window.BuildScoutDallasNow = (() => {
     launched: "2025-05-05"
   };
 
-  function clean(value) {
-    return String(value == null ? "" : value).trim();
-  }
-
+  function clean(value) { return String(value == null ? "" : value).trim(); }
   function numberValue(value) {
     const n = Number(clean(value).replace(/[$,]/g, ""));
     return Number.isFinite(n) ? n : 0;
   }
 
   function normalizeRecord(record, index = 0) {
-    const permitNumber = clean(
-      record.permit_number || record.record_number || record.alt_id || record.id
-    );
+    const permitNumber = clean(record.permit_number || record.record_number || record.alt_id || record.id);
     if (!permitNumber) throw new Error("DallasNow record is missing a permit/record number.");
-
-    const address = clean(
-      record.street_address || record.address || record.location || record.project_address
-    );
-    const description = clean(
-      record.description || record.work_description || record.record_type || record.project_name
-    );
+    const address = clean(record.street_address || record.address || record.location || record.project_address);
+    const description = clean(record.description || record.work_description || record.record_type || record.project_name);
     const status = clean(record.status || record.record_status || "Active");
     const issued = clean(record.issued_date || record.issue_date || record.date_issued);
     const updated = clean(record.updated_at || record.status_date || record.last_updated);
@@ -52,10 +44,13 @@ window.BuildScoutDallasNow = (() => {
       source: SOURCE.name,
       source_id: permitNumber,
       source_url: clean(record.source_url) || SOURCE.portalUrl,
-      source_verified: true,
-      source_current: true,
-      production_eligible: true,
-      last_source_check: updated || new Date().toISOString(),
+      source_jurisdiction: SOURCE.jurisdiction,
+      source_country: SOURCE.country,
+      source_authority: SOURCE.authority,
+      source_verified: record.source_verified === true,
+      source_current: record.source_current !== false,
+      production_eligible: record.source_verified === true,
+      last_source_check: updated || clean(record.verified_at),
       lat: record.lat == null ? null : Number(record.lat),
       lon: record.lon == null ? null : Number(record.lon),
       raw: record,
@@ -71,36 +66,37 @@ window.BuildScoutDallasNow = (() => {
     if (!project.description && !project.name) errors.push("missing project description");
     if (!project.source_verified) errors.push("source not verified");
     if (!project.source_current) errors.push("source not current");
+    if (!project.last_source_check) errors.push("missing verification timestamp");
     return { valid: errors.length === 0, errors };
   }
 
   function prepare(records = []) {
-    const accepted = [];
-    const rejected = [];
+    if (window.BuildScoutSourceAdapters?.get(SOURCE.id)) {
+      return window.BuildScoutSourceAdapters.prepare(SOURCE.id, records);
+    }
+    const accepted = [], rejected = [];
     records.forEach((record, index) => {
       try {
         const project = normalizeRecord(record, index);
         const validation = validateProject(project);
-        if (validation.valid) accepted.push(project);
-        else rejected.push({ record, errors: validation.errors });
-      } catch (error) {
-        rejected.push({ record, errors: [error.message] });
-      }
+        if (validation.valid) accepted.push(project); else rejected.push({ record, errors: validation.errors });
+      } catch (error) { rejected.push({ record, errors: [error.message] }); }
     });
     return { accepted, rejected, source: SOURCE };
   }
 
   async function importVerifiedRecords(records = []) {
+    if (window.BuildScoutSourceAdapters?.get(SOURCE.id)) {
+      return window.BuildScoutSourceAdapters.importVerified(SOURCE.id, records);
+    }
     const { accepted, rejected } = prepare(records);
-    if (!accepted.length) {
-      throw new Error("No verified current DallasNow records were eligible for import.");
-    }
-    if (!window.BuildScoutBackend?.importProjects) {
-      throw new Error("BuildScout backend importer is unavailable.");
-    }
+    if (!accepted.length) throw new Error("No verified current DallasNow records were eligible for import.");
+    if (!window.BuildScoutBackend?.importProjects) throw new Error("BuildScout backend importer is unavailable.");
     const saved = await window.BuildScoutBackend.importProjects(accepted);
     return { saved, rejected };
   }
 
+  const adapter = { ...SOURCE, normalizeRecord };
+  window.BuildScoutSourceAdapters?.register(adapter);
   return { SOURCE, normalizeRecord, validateProject, prepare, importVerifiedRecords };
 })();
