@@ -1,0 +1,1 @@
+PR summary: establish DallasNow as the current Dallas source contract, add normalization and verification gates, and refuse to fake/scrape a live feed. Next phase connects a documented official/authorized machine-readable data path.
