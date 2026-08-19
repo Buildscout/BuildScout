@@ -1,0 +1,1 @@
+READY FOR REVIEW: DallasNow adapter and integrity boundary. No live production feed is claimed in this phase.
