@@ -1,0 +1,14 @@
+{
+  "phase": "16.2",
+  "source": "City of Dallas DallasNow / Accela Citizen Access",
+  "status": "adapter-ready-source-authorization-required",
+  "production_ingestion_enabled": false,
+  "files": [
+    "dallasnow-adapter.js",
+    "api/dallasnow.js",
+    "docs/dallasnow-production-connector.md",
+    "phase16-2-dallasnow-bootstrap.js",
+    "phase16-2-integration.js",
+    "phase16-2-source-policy.js"
+  ]
+}
