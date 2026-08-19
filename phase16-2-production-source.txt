@@ -1,0 +1,1 @@
+Dallas production source: City of Dallas DallasNow / Accela Citizen Access. Automated ingestion: disabled pending documented public or authorized machine-readable access.
