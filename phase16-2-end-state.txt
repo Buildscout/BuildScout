@@ -1,0 +1,1 @@
+End state: verified-source adapter exists; current official Dallas data acquisition is Phase 16.3.
