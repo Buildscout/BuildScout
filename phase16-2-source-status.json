@@ -1,0 +1,9 @@
+{
+  "jurisdiction": "Dallas, TX",
+  "official_system": "DallasNow / Accela Citizen Access",
+  "official_portal": "https://aca-prod.accela.com/DALLASTX",
+  "system_live_since": "2025-05-05",
+  "automated_connector": "pending documented public or authorized machine-readable source",
+  "legacy_open_data_current": false,
+  "production_rule": "no unverified or fabricated records"
+}
