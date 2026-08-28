@@ -32,8 +32,8 @@ window.BuildScoutAustinAudit = (() => {
       if (clean(p.description)) fieldCoverage.description++;
       if (clean(p.name)) fieldCoverage.projectName++;
       if (clean(p.contractor)) fieldCoverage.contractor++;
-      if (Number(p.value) > 0) fieldCoverage.valuation++;
-      if (p.units != null && Number(p.units) >= 0) fieldCoverage.units++;
+      if (p.value != null && Number.isFinite(Number(p.value))) fieldCoverage.valuation++;
+      if (p.units != null && Number.isFinite(Number(p.units))) fieldCoverage.units++;
       if (clean(p.issued_date)) fieldCoverage.issuedDate++;
       if (clean(p.source_id)) fieldCoverage.sourceId++;
     });
@@ -79,7 +79,7 @@ window.BuildScoutAustinAudit = (() => {
       project: p.name,
       address: p.street_address,
       issued: p.issued_date,
-      value: p.value,
+      value: p.value == null ? "Unknown" : p.value,
       contractor: p.contractor,
       source: p.source_id
     })));
@@ -87,7 +87,75 @@ window.BuildScoutAustinAudit = (() => {
     return report;
   }
 
+  function normalizedComparable(project) {
+    return {
+      permit: clean(project?.permit_number),
+      address: clean(project?.street_address),
+      description: clean(project?.description),
+      issued: clean(project?.issued_date),
+      contractor: clean(project?.contractor),
+      value: project?.value == null ? null : Number(project.value)
+    };
+  }
+
+  function compareProject(expected, actual) {
+    const a = normalizedComparable(expected);
+    const b = normalizedComparable(actual);
+    const fields = ["permit", "address", "description", "issued", "contractor", "value"];
+    const mismatches = fields.filter(field => {
+      if (field === "value") return a[field] !== b[field];
+      return a[field].toLowerCase() !== b[field].toLowerCase();
+    });
+    return { match: mismatches.length === 0, mismatches, expected: a, official: b };
+  }
+
+  async function verifySample(count = MANUAL_VERIFY_TARGET) {
+    const report = getLastReport();
+    if (!report?.projects?.length) throw new Error("Run BuildScoutAustinAudit.run(50) first.");
+    if (!window.BuildScoutAustinPermits?.fetchByPermitNumber) throw new Error("Austin permit lookup is unavailable.");
+
+    const sampleSize = Math.max(1, Math.min(Number(count) || MANUAL_VERIFY_TARGET, MANUAL_VERIFY_TARGET, report.projects.length));
+    const sample = report.projects.slice(0, sampleSize);
+    const results = [];
+
+    for (const project of sample) {
+      try {
+        const rows = await window.BuildScoutAustinPermits.fetchByPermitNumber(project.permit_number);
+        if (!rows.length) {
+          results.push({ permit: project.permit_number, found: false, match: false, mismatches: ["record-not-found"] });
+          continue;
+        }
+        const official = window.BuildScoutAustinPermits.normalizeRecord(rows[0]);
+        const comparison = compareProject(project, official);
+        results.push({ permit: project.permit_number, found: true, ...comparison });
+      } catch (error) {
+        results.push({ permit: project.permit_number, found: false, match: false, mismatches: [error.message] });
+      }
+    }
+
+    const passedCount = results.filter(r => r.match).length;
+    const verification = {
+      required: sampleSize,
+      completed: results.length,
+      passedCount,
+      failedCount: results.length - passedCount,
+      passed: results.length === sampleSize && passedCount === sampleSize,
+      results,
+      note: "Review this table against the official City of Austin records before production activation."
+    };
+    report.manualVerification = verification;
+    window.__buildScoutAustinAudit = report;
+    console.table(results.map(r => ({
+      permit: r.permit,
+      found: r.found,
+      match: r.match,
+      mismatches: Array.isArray(r.mismatches) ? r.mismatches.join(", ") : ""
+    })));
+    console.info("BuildScout Austin source verification", verification);
+    return verification;
+  }
+
   function getLastReport() { return window.__buildScoutAustinAudit || null; }
 
-  return { run, auditPrepared, getLastReport, DEFAULT_SAMPLE, MANUAL_VERIFY_TARGET };
+  return { run, verifySample, auditPrepared, getLastReport, DEFAULT_SAMPLE, MANUAL_VERIFY_TARGET };
 })();
