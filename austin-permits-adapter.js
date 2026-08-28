@@ -14,7 +14,12 @@ window.BuildScoutAustinPermits = (() => {
   };
 
   function clean(v){ return String(v == null ? "" : v).trim(); }
-  function numberValue(v){ const n = Number(clean(v).replace(/[$,]/g, "")); return Number.isFinite(n) ? n : 0; }
+  function numberOrNull(v){
+    const raw = clean(v);
+    if (!raw) return null;
+    const n = Number(raw.replace(/[$,]/g, ""));
+    return Number.isFinite(n) ? n : null;
+  }
   function first(record, keys){ for (const key of keys) if (clean(record?.[key])) return clean(record[key]); return ""; }
 
   function normalizeRecord(record, index = 0){
@@ -28,6 +33,7 @@ window.BuildScoutAustinPermits = (() => {
     const issueDate = first(record, ["issue_date", "issued_date", "issueddate"]);
     const status = first(record, ["status_current", "status", "permit_status"]) || "Issued";
     const verifiedAt = clean(record.__buildscout_verified_at);
+    const sourceVerified = record.__buildscout_source_verified === true && !!verifiedAt;
 
     return {
       id: `austin-${sourceId}`,
@@ -37,8 +43,8 @@ window.BuildScoutAustinPermits = (() => {
       zip_code: first(record, ["original_zip", "zip_code", "zip"]),
       type: first(record, ["permit_class_mapped", "permit_type_desc", "permit_type"]) || "Construction",
       stage: status,
-      value: numberValue(first(record, ["total_job_valuation", "valuation", "job_value"])),
-      units: first(record, ["housing_units", "units"]) ? numberValue(first(record, ["housing_units", "units"])) : null,
+      value: numberOrNull(first(record, ["total_job_valuation", "valuation", "job_value"])),
+      units: numberOrNull(first(record, ["number_of_units", "housing_units", "units"])),
       permit_number: permitNumber || sourceId,
       contractor: first(record, ["contractor_company_name", "contractor", "general_contractor"]),
       description,
@@ -49,9 +55,9 @@ window.BuildScoutAustinPermits = (() => {
       source_jurisdiction: SOURCE.jurisdiction,
       source_country: SOURCE.country,
       source_authority: SOURCE.authority,
-      source_verified: record.__buildscout_source_verified === true,
-      source_current: true,
-      production_eligible: record.__buildscout_source_verified === true,
+      source_verified: sourceVerified,
+      source_current: sourceVerified,
+      production_eligible: sourceVerified,
       last_source_check: verifiedAt,
       lat: record.latitude == null ? null : Number(record.latitude),
       lon: record.longitude == null ? null : Number(record.longitude),
@@ -70,6 +76,18 @@ window.BuildScoutAustinPermits = (() => {
     return rows.map(row => ({ ...row, __buildscout_source_verified: true, __buildscout_verified_at: checkedAt }));
   }
 
+  async function fetchByPermitNumber(permitNumber){
+    const permit = clean(permitNumber);
+    if (!permit) throw new Error("Permit number is required.");
+    const safePermit = permit.replace(/'/g, "''");
+    const params = new URLSearchParams({ "$limit": "5", "$where": `permit_number='${safePermit}'` });
+    const response = await fetch(`${SOURCE.apiUrl}?${params}`);
+    if (!response.ok) throw new Error(`Austin permit lookup returned HTTP ${response.status}.`);
+    const checkedAt = new Date().toISOString();
+    const rows = await response.json();
+    return rows.map(row => ({ ...row, __buildscout_source_verified: true, __buildscout_verified_at: checkedAt }));
+  }
+
   async function preview(limit = 100){
     const records = await fetchRecent(limit);
     return window.BuildScoutSourceAdapters.prepare(SOURCE.id, records);
@@ -82,5 +100,5 @@ window.BuildScoutAustinPermits = (() => {
 
   const adapter = { ...SOURCE, normalizeRecord };
   window.BuildScoutSourceAdapters?.register(adapter);
-  return { SOURCE, normalizeRecord, fetchRecent, preview, importRecent };
+  return { SOURCE, normalizeRecord, fetchRecent, fetchByPermitNumber, preview, importRecent };
 })();
