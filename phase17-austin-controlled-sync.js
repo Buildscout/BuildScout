@@ -1,9 +1,9 @@
 /* BuildScout Phase 17.3 — controlled Austin production sync.
  * Requires a successful source verification report from this browser session.
- * First-run batch is capped and every record must pass provenance validation.
+ * Batch size is intentionally capped while the first live source is being proven in production.
  */
 window.BuildScoutAustinSync = (() => {
-  const MAX_BATCH = 25;
+  const MAX_BATCH = 100;
   let killSwitch = false;
 
   function requireVerifiedAudit() {
@@ -37,11 +37,20 @@ window.BuildScoutAustinSync = (() => {
     const prepared = await window.BuildScoutAustinPermits.preview(safeLimit);
     const accepted = prepared?.accepted || [];
     const rejected = prepared?.rejected || [];
+    const seen = new Set();
+    const duplicates = [];
+    accepted.forEach((p) => {
+      const key = `${p.source || ""}|${p.permit_number || p.source_id || ""}`;
+      if (seen.has(key)) duplicates.push(key);
+      else seen.add(key);
+    });
     return {
       mode: "dry-run",
       requested: safeLimit,
       eligible: accepted.length,
       rejected: rejected.length,
+      duplicates: duplicates.length,
+      uniqueEligible: accepted.length - duplicates.length,
       projects: accepted,
       productionWritten: false
     };
@@ -59,11 +68,23 @@ window.BuildScoutAustinSync = (() => {
     const accepted = prepared?.accepted || [];
     const rejected = prepared?.rejected || [];
     if (!accepted.length) throw new Error("No verified Austin records are eligible for import.");
-    const saved = await window.BuildScoutBackend.importProjects(accepted);
+
+    const unique = [];
+    const seen = new Set();
+    accepted.forEach((p) => {
+      const key = `${p.source || ""}|${p.permit_number || p.source_id || ""}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        unique.push(p);
+      }
+    });
+
+    const saved = await window.BuildScoutBackend.importProjects(unique);
     const result = {
       mode: "controlled-production",
       requested: safeLimit,
       eligible: accepted.length,
+      uniqueEligible: unique.length,
       rejected: rejected.length,
       saved: Array.isArray(saved) ? saved.length : 0,
       completedAt: new Date().toISOString(),
