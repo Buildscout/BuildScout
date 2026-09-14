@@ -1,9 +1,48 @@
 window.BuildScoutBackend = (() => {
   let client = null;
 
-  function configured() { const c = window.BUILDSCOUT_CONFIG || {}; return Boolean(c.supabaseUrl && c.supabasePublishableKey); }
-  function init() { if (client) return client; if (!configured()) throw new Error("Supabase configuration is missing."); client = window.supabase.createClient(window.BUILDSCOUT_CONFIG.supabaseUrl, window.BUILDSCOUT_CONFIG.supabasePublishableKey); return client; }
+  function configured() {
+    const c = window.BUILDSCOUT_CONFIG || {};
+    return Boolean(c.supabaseUrl && c.supabasePublishableKey);
+  }
+
+  function init() {
+    if (client) return client;
+    if (!configured()) throw new Error("Supabase configuration is missing.");
+    const c = window.BUILDSCOUT_CONFIG || {};
+    const recovery = c.supabaseRecoveryMode === true;
+    client = window.supabase.createClient(c.supabaseUrl, c.supabasePublishableKey, {
+      auth: recovery
+        ? { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+        : { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+    });
+    return client;
+  }
+
   function getClient() { return client; }
+
+  async function healthCheck(timeoutMs = 5000) {
+    if (!configured()) return { ok: false, reason: "missing-config" };
+    const c = window.BUILDSCOUT_CONFIG || {};
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(`${String(c.supabaseUrl).replace(/\/$/, "")}/rest/v1/`, {
+        method: "HEAD",
+        headers: {
+          apikey: c.supabasePublishableKey,
+          Authorization: `Bearer ${c.supabasePublishableKey}`
+        },
+        signal: controller.signal
+      });
+      return { ok: true, status: response.status };
+    } catch (error) {
+      return { ok: false, reason: error?.name === "AbortError" ? "timeout" : "unreachable", message: error?.message || String(error) };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   async function signUp(email,password,firstName="",lastName="") { if(!client)init(); const {data,error}=await client.auth.signUp({email,password,options:{data:{first_name:firstName,last_name:lastName,full_name:`${firstName} ${lastName}`.trim()}}}); if(error)throw error; return data; }
   async function signIn(email,password){if(!client)init();const{data,error}=await client.auth.signInWithPassword({email,password});if(error)throw error;return data;}
   async function signOut(){if(!client)return;const{error}=await client.auth.signOut();if(error)throw error;}
@@ -24,9 +63,9 @@ window.BuildScoutBackend = (() => {
   async function addActivity(activity){if(!client)init();const{data,error}=await client.from("crm_activities").insert(activity).select().single();if(error)throw error;return data;}
   async function completeActivity(userId,activityId){if(!client)init();const{data,error}=await client.from("crm_activities").update({completed_at:new Date().toISOString()}).eq("id",activityId).eq("user_id",userId).select().single();if(error)throw error;return data;}
   async function getAlerts(userId){if(!client)init();const{data,error}=await client.from("alerts").select("*").eq("user_id",userId).order("created_at",{ascending:false});if(error)throw error;return data||[];}
-  async function saveAlert(userId,name,filters={}){if(!client)init();const{data,error}=await client.from("alerts").insert({user_id:userId,name,filters,is_active:true}).select().single();if(error)throw error;return data;}
+  async function saveAlert(userId,name,filters={}){if(!client]init();const{data,error}=await client.from("alerts").insert({user_id:userId,name,filters,is_active:true}).select().single();if(error)throw error;return data;}
   async function updateAlert(userId,alertId,updates={}){if(!client)init();const{data,error}=await client.from("alerts").update(updates).eq("id",alertId).eq("user_id",userId).select().single();if(error)throw error;return data;}
   async function deleteAlert(userId,alertId){if(!client)init();const{error}=await client.from("alerts").delete().eq("id",alertId).eq("user_id",userId);if(error)throw error;}
   async function getMatchingProjects(filters={}){if(!client)init();let query=client.from("projects").select("*",{count:"exact"});if(filters.project_type)query=query.eq("project_type",filters.project_type);if(filters.min_value)query=query.gte("estimated_value",filters.min_value);if(filters.stage)query=query.eq("stage",filters.stage);if(filters.market){const market=filters.market.trim().toLowerCase();if(market==="dfw"||market==="dallas-fort worth")query=query.or("city.ilike.%Dallas%,city.ilike.%Fort Worth%,city.ilike.%Arlington%,city.ilike.%Plano%,city.ilike.%Frisco%,city.ilike.%Irving%,city.ilike.%Garland%,city.ilike.%McKinney%,city.ilike.%Denton%");else query=query.ilike("city",`%${filters.market.split(",")[0].trim()}%`);}const{data,error,count}=await query.order("opportunity_score",{ascending:false});if(error)throw error;return{projects:data||[],count:count??(data?data.length:0)};}
-  return {configured,init,getClient,signUp,signIn,signOut,getSession,getProjects,getProjectDocuments,importProjects,getSavedProjects,saveProject,unsaveProject,getPipeline,updatePipeline,getContacts,saveContact,deleteContact,setPrimaryContact,getActivities,addActivity,completeActivity,getAlerts,saveAlert,updateAlert,deleteAlert,getMatchingProjects};
+  return {configured,init,getClient,healthCheck,signUp,signIn,signOut,getSession,getProjects,getProjectDocuments,importProjects,getSavedProjects,saveProject,unsaveProject,getPipeline,updatePipeline,getContacts,saveContact,deleteContact,setPrimaryContact,getActivities,addActivity,completeActivity,getAlerts,saveAlert,updateAlert,deleteAlert,getMatchingProjects};
 })();
