@@ -1,10 +1,13 @@
 window.BUILDSCOUT_CONFIG = {
-  appName: "BuildScout", 
+  appName: "BuildScout",
   launchMarket: "Dallas–Fort Worth",
   mapCenter: [44.5, -96.0],
-mapZoom: 4,
-   supabaseUrl: "https://fexdofuzoyvymmbtzvje.supabase.co",
-  supabasePublishableKey:"sb_publishable_QOtqQZrbX7-RXuYuy7reeg_SFmN8bvc",
+  mapZoom: 4,
+  supabaseUrl: "https://fexdofuzoyvymmbtzvje.supabase.co",
+  supabasePublishableKey: "sb_publishable_QOtqQZrbX7-RXuYuy7reeg_SFmN8bvc",
+  // Temporary fail-safe while the configured Supabase hostname is being repaired.
+  // Prevents a dead backend from creating an infinite refresh-token loop in the browser.
+  supabaseRecoveryMode: true,
   sources: [
     {
       city: "Fort Worth",
