@@ -1,5 +1,6 @@
--- BuildScout Phase 18 — production ingestion telemetry
--- Run once in Supabase SQL Editor before enabling scheduled syncs.
+-- BuildScout Phase 19 — production ingestion hardening
+-- Run once in Supabase SQL Editor after merging Phase 19.
+-- Safe to re-run.
 
 create table if not exists public.sync_runs (
   id uuid primary key default gen_random_uuid(),
@@ -26,17 +27,16 @@ create index if not exists projects_source_permit_lookup_idx
 
 alter table public.sync_runs enable row level security;
 
--- Sync telemetry is server-managed. The service-role key used by the server-side
--- ingestion endpoint bypasses RLS; browser roles receive no direct write access.
+-- Browser roles cannot read or mutate ingestion telemetry directly.
 revoke all on table public.sync_runs from anon, authenticated;
 
--- Optional post-cutover hardening:
--- After the server-side sync endpoint has been tested successfully, remove the
--- temporary browser import policies created during Phase 17 and revoke direct
--- project writes from normal signed-in users if no other admin UI depends on them.
---
+-- PostgREST table privileges are separate from RLS. The ingestion API uses
+-- SUPABASE_SERVICE_ROLE_KEY, so grant that role the minimum table privileges
+-- needed by the server-side sync and status endpoints.
+grant select, insert, update on table public.sync_runs to service_role;
+grant select, insert, update, delete on table public.projects to service_role;
+
+-- Optional hardening after confirming the server sync/admin workflow:
 -- drop policy if exists "temp_austin_insert" on public.projects;
 -- drop policy if exists "temp_austin_update" on public.projects;
--- drop policy if exists "buildscout_owner_insert" on public.projects;
--- drop policy if exists "buildscout_owner_update" on public.projects;
 -- revoke insert, update, delete on table public.projects from authenticated;
