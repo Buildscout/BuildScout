@@ -11,6 +11,7 @@ export const CHICAGO_SOURCE = {
 function clean(v){ return String(v == null ? "" : v).trim(); }
 function first(r,keys){ for(const k of keys){ const v=clean(r?.[k]); if(v) return v; } return ""; }
 function numberOrNull(v){ const n=Number(clean(v).replace(/[$,]/g,"")); return Number.isFinite(n)?n:null; }
+function dateOnly(v){ const s=clean(v); return s ? s.slice(0,10) : null; }
 
 function generalContractor(r){
   for(let i=1;i<=15;i++){
@@ -34,7 +35,7 @@ export function normalizeChicagoRecord(r,checkedAt=new Date().toISOString()){
     city:"Chicago, IL",street_address:street||null,zip_code:first(r,["zip_code"])||null,
     latitude:numberOrNull(first(r,["latitude"])),longitude:numberOrNull(first(r,["longitude"])),
     project_type:type,stage:"Issued",estimated_value:numberOrNull(first(r,["reported_cost","estimated_cost"])),
-    opportunity_score:70,units:null,expected_start:first(r,["issue_date"])||null,
+    opportunity_score:70,units:null,expected_start:dateOnly(first(r,["issue_date"])),
     general_contractor:generalContractor(r)||null,
     permit_number:sourceId,source_name:CHICAGO_SOURCE.name,source_url:CHICAGO_SOURCE.portalUrl,
     last_verified:String(checkedAt).slice(0,10)
