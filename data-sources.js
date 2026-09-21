@@ -9,7 +9,7 @@ window.BuildScoutDataSources = (() => {
     {country:"United States", region:"Arizona", market:"Phoenix", source:"Municipal permit data", status:"Planned", records:0, lastSync:"—"},
     {country:"United States", region:"Colorado", market:"Denver", source:"Municipal permit data", status:"Planned", records:0, lastSync:"—"},
     {country:"United States", region:"Illinois", market:"Chicago", source:"Municipal permit data", status:"Planned", records:0, lastSync:"—"},
-    {country:"United States", region:"New York", market:"New York City", source:"Municipal permit data", status:"Planned", records:0, lastSync:"—"},
+    {country:"United States", region:"New York", market:"New York City", source:"NYC Department of Buildings — DOB Permit Issuance", status:"Ready", records:0, lastSync:"Awaiting first sync"},
     {country:"Canada", region:"Ontario", market:"Toronto", source:"Municipal permit data", status:"Planned", records:0, lastSync:"—"},
     {country:"Canada", region:"Ontario", market:"Ottawa", source:"Municipal permit data", status:"Planned", records:0, lastSync:"—"},
     {country:"Canada", region:"British Columbia", market:"Vancouver", source:"Municipal permit data", status:"Planned", records:0, lastSync:"—"},
@@ -109,25 +109,32 @@ window.BuildScoutDataSources = (() => {
   }
 
   async function refreshStatus(){
-    const austin=markets.find(m=>m.market==="Austin");
-    if(!austin) return;
+    const bindings=[
+      {key:"austin", market:"Austin"},
+      {key:"nyc", market:"New York City"}
+    ];
     try{
       const response=await fetch("/api/sync-status");
       if(!response.ok) throw new Error(`HTTP ${response.status}`);
       const data=await response.json();
-      const status=data?.sources?.austin;
-      if(status){
-        austin.status="Live";
-        austin.records=Number(status.records||0);
+      bindings.forEach(({key,market})=>{
+        const row=markets.find(m=>m.market===market);
+        const status=data?.sources?.[key];
+        if(!row || !status) return;
+        row.status=status.status==="live" ? "Live" : "Ready";
+        row.records=Number(status.records||0);
         const latest=status.latestSync;
         if(latest?.completed_at){
-          austin.lastSync=`${new Date(latest.completed_at).toLocaleString()} · ${latest.status}`;
-        }else{
-          austin.lastSync="Live source · telemetry pending";
+          row.lastSync=`${new Date(latest.completed_at).toLocaleString()} · ${latest.status}`;
+        }else if(status.health?.state==="telemetry_pending"){
+          row.lastSync=row.records ? "Live source · telemetry pending" : "Awaiting first sync";
         }
-      }
+      });
     }catch(error){
-      austin.lastSync="Status unavailable";
+      bindings.forEach(({market})=>{
+        const row=markets.find(m=>m.market===market);
+        if(row) row.lastSync="Status unavailable";
+      });
     }
     filter();
   }
