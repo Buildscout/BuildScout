@@ -1,12 +1,8 @@
 {
   "crons": [
-    {
-      "path": "/api/sync-austin",
-      "schedule": "0 10 * * *"
-    },
-    {
-      "path": "/api/sync-nyc",
-      "schedule": "20 10 * * *"
-    }
+    {"path": "/api/sync-austin", "schedule": "0 10 * * *"},
+    {"path": "/api/sync-nyc", "schedule": "20 10 * * *"},
+    {"path": "/api/sync-chicago", "schedule": "40 10 * * *"},
+    {"path": "/api/sync-seattle", "schedule": "0 11 * * *"}
   ]
 }
