@@ -9,23 +9,35 @@ export const CHICAGO_SOURCE = {
 };
 
 function clean(v){ return String(v == null ? "" : v).trim(); }
-function first(r, keys){ for(const k of keys){ const v=clean(r?.[k]); if(v) return v; } return ""; }
-function numberOrNull(v){ const n=Number(clean(v).replace(/[$,]/g,"")); return Number.isFinite(n) ? n : null; }
+function first(r,keys){ for(const k of keys){ const v=clean(r?.[k]); if(v) return v; } return ""; }
+function numberOrNull(v){ const n=Number(clean(v).replace(/[$,]/g,"")); return Number.isFinite(n)?n:null; }
+
+function generalContractor(r){
+  for(let i=1;i<=15;i++){
+    const role=clean(r?.[`contact_${i}_type`]).toUpperCase();
+    const name=clean(r?.[`contact_${i}_name`]);
+    if(name && (role.includes("GENERAL CONTRACTOR") || role==="OWNER AS GENERAL CONTRACTOR")) return name;
+  }
+  return "";
+}
 
 export function normalizeChicagoRecord(r,checkedAt=new Date().toISOString()){
-  const permit=first(r,["permit_","permit_number","id"]);
-  if(!permit) return {rejected:true,reason:"missing permit identifier"};
+  // Chicago documents ID as the unique database-record identifier. PERMIT# is a
+  // tracking number and can repeat, so BuildScout uses ID as its stable source key.
+  const sourceId=first(r,["id"]);
+  if(!sourceId) return {rejected:true,reason:"missing unique source id"};
+  const displayPermit=first(r,["permit_"]);
   const street=[first(r,["street_number"]),first(r,["street_direction"]),first(r,["street_name"]),first(r,["suffix"])].filter(Boolean).join(" ");
-  const type=first(r,["permit_type","work_description"]) || "Construction";
-  const contractor=first(r,["contact_1_name","contractor_1_name","general_contractor"]);
+  const type=first(r,["permit_type","work_description"])||"Construction";
   return {rejected:false,project:{
-    name: street ? `${type} — ${street}` : `Chicago permit ${permit}`,
-    city:"Chicago, IL", street_address:street||null, zip_code:first(r,["zip_code"])||null,
-    latitude:numberOrNull(first(r,["latitude"])), longitude:numberOrNull(first(r,["longitude"])),
-    project_type:type, stage:"Issued", estimated_value:numberOrNull(first(r,["reported_cost","estimated_cost"])),
-    opportunity_score:70, units:null, expected_start:first(r,["issue_date"])||null,
-    general_contractor:contractor||null, permit_number:permit, source_name:CHICAGO_SOURCE.name,
-    source_url:CHICAGO_SOURCE.portalUrl, last_verified:String(checkedAt).slice(0,10)
+    name:street?`${type} — ${street}`:`Chicago permit ${displayPermit||sourceId}`,
+    city:"Chicago, IL",street_address:street||null,zip_code:first(r,["zip_code"])||null,
+    latitude:numberOrNull(first(r,["latitude"])),longitude:numberOrNull(first(r,["longitude"])),
+    project_type:type,stage:"Issued",estimated_value:numberOrNull(first(r,["reported_cost","estimated_cost"])),
+    opportunity_score:70,units:null,expected_start:first(r,["issue_date"])||null,
+    general_contractor:generalContractor(r)||null,
+    permit_number:sourceId,source_name:CHICAGO_SOURCE.name,source_url:CHICAGO_SOURCE.portalUrl,
+    last_verified:String(checkedAt).slice(0,10)
   }};
 }
 
@@ -35,12 +47,19 @@ export async function fetchChicagoRecords({maxRecords=1000,pageSize=500}={}){
   const checkedAt=new Date().toISOString(),raw=[];
   for(let offset=0;offset<max;offset+=size){
     const take=Math.min(size,max-offset);
-    const params=new URLSearchParams({"$limit":String(take),"$offset":String(offset),"$order":"issue_date DESC"});
+    // ID is the deterministic tie-breaker when many permits share an issue date.
+    const params=new URLSearchParams({"$limit":String(take),"$offset":String(offset),"$order":"issue_date DESC, id DESC"});
     const response=await fetch(`${CHICAGO_SOURCE.apiUrl}?${params}`);
     if(!response.ok) throw new Error(`Chicago permit feed returned HTTP ${response.status}.`);
     const page=await response.json();raw.push(...page);if(page.length<take)break;
   }
   const projects=[],seen=new Set();let rejected=0,duplicates=0;
-  for(const r of raw){const n=normalizeChicagoRecord(r,checkedAt);if(n.rejected){rejected++;continue;}const key=n.project.permit_number;if(seen.has(key)){duplicates++;continue;}seen.add(key);projects.push(n.project);}
+  for(const r of raw){
+    const n=normalizeChicagoRecord(r,checkedAt);
+    if(n.rejected){rejected++;continue;}
+    const key=n.project.permit_number;
+    if(seen.has(key)){duplicates++;continue;}
+    seen.add(key);projects.push(n.project);
+  }
   return {source:CHICAGO_SOURCE,fetched:raw.length,eligible:projects.length,rejected,duplicates,projects};
 }
