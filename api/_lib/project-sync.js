@@ -9,6 +9,8 @@ const MANAGED_FIELDS = [
 
 const NUMERIC_FIELDS = new Set(["latitude","longitude","estimated_value","opportunity_score","units"]);
 const DATE_FIELDS = new Set(["expected_start","last_verified"]);
+const COORDINATE_FIELDS = new Set(["latitude","longitude"]);
+const COORDINATE_DECIMALS = 6;
 const CHICAGO_SOURCE_NAME = "City of Chicago — Building Permits";
 const DIAGNOSTIC_SAMPLE_LIMIT = 10;
 
@@ -16,7 +18,10 @@ function comparable(field, value) {
   if (value == null || value === "") return null;
   if (NUMERIC_FIELDS.has(field)) {
     const number = Number(value);
-    return Number.isFinite(number) ? number : String(value).trim();
+    if (!Number.isFinite(number)) return String(value).trim();
+    // Postgres/Supabase may round coordinates when persisting them. Compare
+    // coordinates at ~0.1 m precision so storage-only float noise is not a change.
+    return COORDINATE_FIELDS.has(field) ? Number(number.toFixed(COORDINATE_DECIMALS)) : number;
   }
   if (DATE_FIELDS.has(field)) return String(value).slice(0, 10);
   return String(value).trim();
