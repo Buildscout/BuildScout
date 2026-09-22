@@ -11,6 +11,21 @@ let pipelineDetails = {};
 let currentSession = null;
 let authMode = "signin";
 
+function renderLandingPage() {
+  const root=document.getElementById("app");
+  root.innerHTML=`
+    <div class="public-site">
+      <header class="public-nav"><div class="logo">BUILD<span>SCOUT</span></div><div><button class="btn secondary" onclick="authMode='signin';renderAuthScreen()">Sign in</button><button class="btn primary" onclick="authMode='signup';renderAuthScreen()">Start free</button></div></header>
+      <main>
+        <section class="public-hero">
+          <div><div class="bs-eyebrow">CONSTRUCTION SALES INTELLIGENCE</div><h1>Find the projects. Find the people. Win more work.</h1><p>BuildScout turns scattered construction signals into sales-ready opportunities with project teams, authorized plans and specs, verified source data, and intelligence that tells your team what to do next.</p><div class="public-actions"><button class="btn primary" onclick="authMode='signup';renderAuthScreen()">Create account</button><button class="btn secondary" onclick="authMode='signin';renderAuthScreen()">Sign in</button></div></div>
+          <div class="public-preview"><div class="preview-map"><span>PROJECT INTELLIGENCE MAP</span><b>Discover opportunities by market</b></div><div class="preview-row"><span>Project team</span><b>Know who to call</b></div><div class="preview-row"><span>Plans & specs</span><b>Open documents from the project</b></div><div class="preview-row"><span>AI next move</span><b>Turn data into outreach</b></div></div>
+        </section>
+        <section class="public-value"><article><b>01</b><h2>Discover</h2><p>Find real construction opportunities without treating a permit number as the finished product.</p></article><article><b>02</b><h2>Understand</h2><p>Bring project value, stage, team, plans, source confidence and activity together.</p></article><article><b>03</b><h2>Reach</h2><p>Use BuildScout intelligence to identify the right companies and next contacts.</p></article><article><b>04</b><h2>Win</h2><p>Move opportunities through one simple sales pipeline from discovery to close.</p></article></section>
+      </main>
+    </div>`;
+}
+
 function renderAuthScreen(message = "") {
   const root = document.getElementById("app");
   const isSignup = authMode === "signup";
@@ -324,7 +339,7 @@ async function bootBuildScout() {
     currentSession = await BuildScoutBackend.getSession();
 
     if (!currentSession) {
-      renderAuthScreen();
+      renderLandingPage();
       return;
     }
 
@@ -421,7 +436,7 @@ last_verified: p.last_verified
     console.error("Failed to load Supabase projects:", error);
   }
 }
-let page="home", query="", selectedType="All", selectedStage="All", minValue=0;
+let page="dashboard", query="", selectedType="All", selectedStage="All", minValue=0;
 let map, markerLayer;
 let projectMarkers = {};
 const app=document.getElementById("app");
@@ -541,7 +556,7 @@ function shell(){
   <div class="shell">
     <aside class="sidebar">
       <div class="nav">
-        ${navBtn("home","⌂ Home")}
+        ${navBtn("dashboard","▦ Project Map")}
         ${navBtn("projects","◉ Find Projects")}
         ${navBtn("saved",`★ Saved (${saved.length})`)}
         ${navBtn("pipeline","▤ Pipeline")}
