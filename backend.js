@@ -5,7 +5,25 @@ window.BuildScoutBackend = (() => {
   function init() { if (client) return client; if (!configured()) throw new Error("Supabase configuration is missing."); client = window.supabase.createClient(window.BUILDSCOUT_CONFIG.supabaseUrl, window.BUILDSCOUT_CONFIG.supabasePublishableKey); return client; }
   function getClient() { return client; }
   async function signUp(email,password,firstName="",lastName="") { if(!client)init(); const {data,error}=await client.auth.signUp({email,password,options:{data:{first_name:firstName,last_name:lastName,full_name:`${firstName} ${lastName}`.trim()}}}); if(error)throw error; return data; }
-  async function signIn(email,password){if(!client)init();const{data,error}=await client.auth.signInWithPassword({email,password});if(error)throw error;return data;}
+  async function signIn(email,password){
+    if(!client)init();
+    const {data,error}=await client.auth.signInWithPassword({email,password});
+    if(error)throw error;
+    if(!data?.session?.access_token||!data?.session?.refresh_token){
+      throw new Error("Sign-in succeeded but no authenticated session was returned.");
+    }
+    const {data:sessionData,error:sessionError}=await client.auth.setSession({
+      access_token:data.session.access_token,
+      refresh_token:data.session.refresh_token
+    });
+    if(sessionError)throw sessionError;
+    const {data:userData,error:userError}=await client.auth.getUser();
+    if(userError)throw userError;
+    if(!userData?.user||userData.user.id!==sessionData?.session?.user?.id){
+      throw new Error("Unable to confirm the authenticated BuildScout session.");
+    }
+    return { ...data, session: sessionData.session, user: userData.user };
+  }
   async function signOut(){if(!client)return;const{error}=await client.auth.signOut();if(error)throw error;}
   async function getSession(){if(!client)init();const{data,error}=await client.auth.getSession();if(error)throw error;return data.session;}
   async function getProjects(){if(!client)init();const{data,error}=await client.from("projects").select("*").order("created_at",{ascending:false});if(error)throw error;return data||[];}
