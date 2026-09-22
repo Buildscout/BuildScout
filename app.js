@@ -1,8 +1,11 @@
 
 const CFG=window.BUILDSCOUT_CONFIG, DEMO=window.BUILDSCOUT_DEMO_PROJECTS;
 let imported=JSON.parse(localStorage.getItem("bs_imported")||"[]"); 
-let saved=JSON.parse(localStorage.getItem("bs_saved")||"[]");
-let pipeline=JSON.parse(localStorage.getItem("bs_pipeline")||"{}");
+// User-specific state is loaded from Supabase after authentication.
+// Do not hydrate it from localStorage: browser storage is shared across sign-ins
+// on the same device and can briefly show stale data from another session.
+let saved = [];
+let pipeline = {};
 let pipelineDetails = {};
 
 let currentSession = null;
@@ -295,10 +298,12 @@ async function startBuildScout() {
 
   const userId = currentSession.user.id;
 
-  const savedRows = await BuildScoutBackend.getSavedProjects(userId);
-  saved = savedRows.map(row => row.project_id);
+  const [savedRows, pipelineRows] = await Promise.all([
+    BuildScoutBackend.getSavedProjects(userId),
+    BuildScoutBackend.getPipeline(userId)
+  ]);
 
-  const pipelineRows = await BuildScoutBackend.getPipeline(userId);
+  saved = savedRows.map(row => row.project_id);
 
   pipeline = {};
   pipelineDetails = {};
@@ -423,9 +428,9 @@ let projectMarkers = {};
 const app=document.getElementById("app");
 
 function persist(){
+  // Imported data is device-local. Saved projects and pipeline state are
+  // account data and are persisted through BuildScoutBackend/Supabase.
   localStorage.setItem("bs_imported",JSON.stringify(imported));
-  localStorage.setItem("bs_saved",JSON.stringify(saved));
-  localStorage.setItem("bs_pipeline",JSON.stringify(pipeline));
 }
 function money(n){if(!n)return "—"; return n>=1e6?`$${(n/1e6).toFixed(1)}M`:`$${Number(n).toLocaleString()}`}
 function calculateOpportunityScore(p){
