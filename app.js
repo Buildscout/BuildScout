@@ -266,18 +266,17 @@ async function handleAuthSubmit() {
       return;
     }
 
-    await BuildScoutBackend.signIn(email, password);
+    const authData = await BuildScoutBackend.signIn(email, password);
 
-    currentSession = await BuildScoutBackend.getSession();
+    currentSession = authData?.session || null;
 
-    if (!currentSession) {
-      renderAuthScreen(
-        "Please verify your email address before signing in."
+    if (!currentSession?.user) {
+      throw new Error(
+        "Sign-in succeeded, but BuildScout could not establish your authenticated session."
       );
-      return;
     }
 
-    await startBuildScout();
+    await startBuildScout(currentSession);
 
   } catch (error) {
     console.error("Authentication failed:", error);
@@ -288,11 +287,11 @@ async function handleAuthSubmit() {
   }
 }
 
-async function startBuildScout() {
-  currentSession = await BuildScoutBackend.getSession();
+async function startBuildScout(session = null) {
+  currentSession = session || currentSession || await BuildScoutBackend.getSession();
 
-  if (!currentSession) {
-    renderAuthScreen();
+  if (!currentSession?.user) {
+    renderAuthScreen("Your session expired. Please sign in again.");
     return;
   }
 
