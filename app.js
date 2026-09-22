@@ -689,7 +689,7 @@ function projectCard(p){
     <div class="opportunity-facts"><div><small>Value</small><b>${money(p.value)}</b></div><div><small>Project team</small><b>${q.team?"Identified":"Research needed"}</b></div><div><small>Plans</small><b>${q.plans?`${p.document_count} available`:"Not found yet"}</b></div></div>
     <div class="opportunity-next"><small>BUILDSCOUT NEXT MOVE</small><b>${esc(nextMove(p))}</b></div>
     <div class="opportunity-source"><span class="confidence-pill ${q.known>=3?"good":q.known===2?"mid":"low"}">${q.label}</span><span>${esc(p.source||"Unknown source")}${p.permit_number?` · Permit ${esc(p.permit_number)}`:""}</span></div>
-    <div class="opportunity-actions"><button class="btn primary" onclick="viewProject('${p.id}')">Open project</button>${q.plans?`<button class="btn secondary" onclick="BuildScoutProjectDocuments.open('${p.id}',${JSON.stringify(p.name||"Project")})">View plans</button>`:""}<button class="btn secondary" onclick="toggleSave('${p.id}')">${saved.includes(p.id)?"Saved":"Save"}</button></div>
+    <div class="opportunity-actions"><button class="btn primary" onclick="viewProject('${p.id}')">Open project</button><button class="btn secondary" onclick="BuildScoutIntelligence.open('${p.id}',${JSON.stringify(projectIdentity(p))})">Intelligence</button>${q.plans?`<button class="btn secondary" onclick="BuildScoutProjectDocuments.open('${p.id}',${JSON.stringify(p.name||"Project")})">View plans</button>`:""}<button class="btn secondary" onclick="toggleSave('${p.id}')">${saved.includes(p.id)?"Saved":"Save"}</button></div>
   </article>`;
 }
 function focusProjectOnMap(id){
