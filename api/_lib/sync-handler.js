@@ -18,7 +18,8 @@ export async function runSourceSync(req,res,source,fetchRecords){
   try{
     const sourceReport=await fetchRecords({maxRecords,pageSize});
     const persisted=await syncProjects(source.name,sourceReport.projects);
-    const report={source:source.name,sourceId:source.id,startedAt,completedAt:new Date().toISOString(),requestedMax:maxRecords,pageSize,fetched:sourceReport.fetched,eligible:sourceReport.eligible,rejected:sourceReport.rejected,duplicates:sourceReport.duplicates+persisted.duplicates,existingBefore:persisted.existingBefore,inserted:persisted.inserted,updated:persisted.updated,unchanged:persisted.unchanged,processed:persisted.processed,telemetry:run?.telemetryUnavailable?"migration-required":"recorded"};
+    const report={source:source.name,sourceId:source.id,startedAt,completedAt:new Date().toISOString(),requestedMax:maxRecords,pageSize,fetched:sourceReport.fetched,eligible:sourceReport.eligible,rejected:sourceReport.rejected,duplicates:sourceReport.duplicates+persisted.duplicates,existingBefore:persisted.existingBefore,inserted:persisted.inserted,updated:persisted.updated,unchanged:persisted.unchanged,processed:persisted.processed,telemetry:run?.telemetryUnavailable?"migration-required":"recorded",...(persisted.syncDiagnostics?{syncDiagnostics:persisted.syncDiagnostics}:{})};
+    if(persisted.syncDiagnostics) console.info("[CHICAGO SYNC DIFF]",JSON.stringify(persisted.syncDiagnostics));
     await finishSyncRun(run,report,"success");return res.status(200).json(report);
   }catch(error){
     const report={source:source.name,startedAt,fetched:0,eligible:0,rejected:0,duplicates:0,inserted:0,updated:0,unchanged:0};
