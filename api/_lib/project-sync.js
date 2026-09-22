@@ -7,13 +7,23 @@ const MANAGED_FIELDS = [
   "source_url", "last_verified"
 ];
 
-function comparable(value) {
+const NUMERIC_FIELDS = new Set(["latitude","longitude","estimated_value","opportunity_score","units"]);
+const DATE_FIELDS = new Set(["expected_start","last_verified"]);
+
+function comparable(field, value) {
   if (value == null || value === "") return null;
-  return value;
+  if (NUMERIC_FIELDS.has(field)) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : String(value).trim();
+  }
+  if (DATE_FIELDS.has(field)) return String(value).slice(0, 10);
+  return String(value).trim();
 }
 
 function rowChanged(existing, incoming) {
-  return MANAGED_FIELDS.some((field) => comparable(existing?.[field]) !== comparable(incoming?.[field]));
+  return MANAGED_FIELDS.some((field) =>
+    comparable(field, existing?.[field]) !== comparable(field, incoming?.[field])
+  );
 }
 
 async function getExistingBySource(sourceName) {
