@@ -28,6 +28,21 @@ function valueType(value) {
   return typeof value;
 }
 
+function diagnosticValue(field, value) {
+  const normalized = comparable(field, value);
+  const stringValue = value == null ? null : String(value);
+  return {
+    type: valueType(value),
+    comparableType: valueType(normalized),
+    isNullish: value == null,
+    isEmptyString: value === "",
+    stringLength: stringValue?.length ?? null,
+    trimmedLength: stringValue?.trim().length ?? null,
+    datePrefixLength: DATE_FIELDS.has(field) && stringValue ? stringValue.slice(0, 10).length : null,
+    numericFinite: NUMERIC_FIELDS.has(field) ? Number.isFinite(Number(value)) : null
+  };
+}
+
 function rowDiff(existing, incoming) {
   return MANAGED_FIELDS.flatMap((field) => {
     const existingComparable = comparable(field, existing?.[field]);
@@ -35,18 +50,8 @@ function rowDiff(existing, incoming) {
     if (existingComparable === incomingComparable) return [];
     return [{
       field,
-      existing: {
-        value: existing?.[field] ?? null,
-        type: valueType(existing?.[field]),
-        comparable: existingComparable,
-        comparableType: valueType(existingComparable)
-      },
-      incoming: {
-        value: incoming?.[field] ?? null,
-        type: valueType(incoming?.[field]),
-        comparable: incomingComparable,
-        comparableType: valueType(incomingComparable)
-      }
+      existing: diagnosticValue(field, existing?.[field]),
+      incoming: diagnosticValue(field, incoming?.[field])
     }];
   });
 }
@@ -129,8 +134,6 @@ export async function syncProjects(sourceName, projects) {
         }
         if (samples.length < DIAGNOSTIC_SAMPLE_LIMIT) {
           samples.push({
-            sourceId: permit,
-            databaseId: current.id,
             changedFields: differences.map((difference) => difference.field),
             differences
           });
