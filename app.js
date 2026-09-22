@@ -387,6 +387,10 @@ function isDisplayLead(p) {
 async function loadSupabaseProjects() {
   try {
     const rows = await BuildScoutBackend.getProjects();
+    const documentCounts = await BuildScoutBackend.getProjectDocumentCounts().catch(error => {
+      console.warn("Project document counts could not load:", error);
+      return {};
+    });
 
     const supabaseProjects = rows
   .filter(isDisplayLead)
@@ -408,7 +412,9 @@ async function loadSupabaseProjects() {
 street_address: p.street_address,
 zip_code: p.zip_code,
 created_at: p.created_at,
-last_verified: p.last_verified
+last_verified: p.last_verified,
+document_count: Number(documentCounts[String(p.id)] || 0),
+source_url: p.source_url || null
     }));
 
     projects = [...supabaseProjects];
@@ -605,79 +611,51 @@ function filterBar(){
   }
 }
 
-function projectCard(p){
-  return `<div
-    class="project-card"
-    id="project-card-${p.id}"
-    onclick="focusProjectOnMap('${p.id}')"
-    style="cursor:pointer;"
-  >
-    <div class="score">
-  ${p.score || 70}/100
-  <span style="
-    margin-left:6px;
-    font-size:11px;
-    font-weight:800;
-    padding:3px 7px;
-    border-radius:999px;
-    ${
-      (p.score || 70) >= 90
-        ? "background:#3b1616;color:#ff6b6b;"
-        : (p.score || 70) >= 80
-        ? "background:#12351f;color:#65e58c;"
-        : (p.score || 70) >= 65
-        ? "background:#3a2f12;color:#f5c451;"
-        : "background:#252b33;color:#9ca8b6;"
-    }
-  ">
-    ${
-      (p.score || 70) >= 90
-        ? "HOT"
-        : (p.score || 70) >= 80
-        ? "STRONG"
-        : (p.score || 70) >= 65
-        ? "WATCH"
-        : "LOW"
-    }
-  </span>
-</div>
-
-    <span class="tag">${p.type || "Project"}</span>
-    <span class="tag">${p.stage || "Unknown stage"}</span>
-
-    <h3>${esc(p.name || "Unnamed project")}</h3>
-
-    <div class="muted">${esc(p.city || "DFW")}</div>
-
-    <div class="meta">
-      <div>
-        <small>Value</small>
-        <b>${money(p.value)}</b>
-      </div>
-
-      <div>
-        <small>Units</small>
-        <b>${p.units || "—"}</b>
-      </div>
-    </div>
-
-    <div class="note">
-      ${p.source === "BuildScout demo data" ? "DEMO" : "IMPORTED"}
-      •
-      ${esc(p.source || "Unknown source")}
-    </div>
-
-    <div style="margin-top:9px">
-      <button
-        class="btn primary"
-        onclick="event.stopPropagation();viewProject('${p.id}')"
-      >
-        View
-      </button>
-    </div>
-  </div>`;
+function projectIdentity(p){
+  const raw=String(p.name||"").trim();
+  const generic=/^(permit\s*)?(#?\s*[a-z0-9-]+)?$/i.test(raw)||/^permit\b/i.test(raw);
+  if(!generic&&raw)return raw;
+  if(p.street_address)return `${p.street_address} — ${p.type||"Construction"}`;
+  return `${p.type||"Construction"} opportunity in ${p.city||"this market"}`;
 }
-
+function projectCompleteness(p){
+  const team=Boolean(p.gc||p.developer);
+  const plans=Number(p.document_count||0)>0;
+  const value=Number(p.value||0)>0;
+  const address=Boolean(p.street_address);
+  const known=[team,plans,value,address].filter(Boolean).length;
+  return {team,plans,value,address,known,label:known>=3?"High confidence":known===2?"Developing":"Source signal"};
+}
+function projectNextAction(p){
+  const q=projectCompleteness(p);
+  if(q.plans&&q.team)return "Review plans and contact the project team";
+  if(q.plans)return "Review plans and identify the decision maker";
+  if(q.team)return "Contact the project team and request plans";
+  return "Verify project team and look for plans";
+}
+function projectCard(p){
+  const q=projectCompleteness(p);
+  return `<article class="project-card opportunity-card" id="project-card-${p.id}">
+    <div class="opportunity-card-top">
+      <div><span class="tag">${esc(p.type||"Construction")}</span><span class="tag">${esc(p.stage||"Unknown stage")}</span></div>
+      <div class="score">${p.score||0}/100</div>
+    </div>
+    <h3>${esc(projectIdentity(p))}</h3>
+    <div class="muted">${esc([p.street_address,p.city].filter(Boolean).join(", ")||p.city||"Location unavailable")}</div>
+    <div class="opportunity-facts">
+      <div><small>Value</small><b>${money(p.value)}</b></div>
+      <div><small>Project team</small><b>${q.team?"Identified":"Research needed"}</b></div>
+      <div><small>Plans</small><b>${q.plans?`${p.document_count} available`:"Not available yet"}</b></div>
+    </div>
+    <div class="opportunity-next"><small>BUILDSCOUT NEXT MOVE</small><b>${esc(projectNextAction(p))}</b></div>
+    <div class="opportunity-source"><span class="confidence-pill ${q.known>=3?"good":q.known===2?"mid":"low"}">${q.label}</span><span>${esc(p.source||"Unknown source")}${p.permit_number?` · Permit ${esc(p.permit_number)}`:""}</span></div>
+    <div class="opportunity-actions">
+      <button class="btn primary" onclick="viewProject('${p.id}')">Open project</button>
+      ${q.plans?`<button class="btn secondary" onclick="BuildScoutProjectDocuments.open('${p.id}', ${JSON.stringify(p.name||"Project")})">View plans</button>`:""}
+      <button class="btn secondary" onclick="toggleSave('${p.id}')">${saved.includes(p.id)?"Saved":"Save"}</button>
+    </div>
+  </article>`;
+}
 function focusProjectOnMap(id){
   const project = projects.find(p => String(p.id) === String(id));
 
@@ -1115,6 +1093,15 @@ if (score >= 90) {
     </div>
   </div>
 </div>
+        <div class="project-command-strip">
+          <div><small>BUILDSCOUT RECOMMENDS</small><b>${esc(projectNextAction(p))}</b></div>
+          <button class="btn primary" onclick="document.getElementById('modal')?.remove();BuildScoutCRM.open('${p.id}')">Open Sales Intelligence</button>
+        </div>
+        <div class="project-readiness">
+          <div><small>Project team</small><b>${p.gc||p.developer?"Identified":"Needs research"}</b></div>
+          <div><small>Plans & specs</small><b>${Number(p.document_count||0)>0?`${p.document_count} available`:"Not available yet"}</b></div>
+          <div><small>Source</small><b>${esc(p.source||"Unknown")}</b></div>
+        </div>
         <div class="grid" style="margin-top:18px;">
 
           <div class="panel">
@@ -1186,6 +1173,10 @@ if (score >= 90) {
             onclick="addProjectToPipeline('${p.id}');document.getElementById('modal')?.remove()"
           >
             Add to pipeline
+          </button>
+
+          <button class="btn secondary" onclick="BuildScoutProjectDocuments.open('${p.id}', ${JSON.stringify(p.name||"Project")})">
+            ${Number(p.document_count||0)>0?`Plans & Specs (${p.document_count})`:"Plans & Specs"}
           </button>
 
           ${
