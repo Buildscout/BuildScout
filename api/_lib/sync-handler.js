@@ -1,5 +1,6 @@
 import { getSupabaseConfig } from "./supabase-rest.js";
 import { createSyncRun, findActiveSync, finishSyncRun, syncProjects } from "./project-sync.js";
+import { enrichSyncedProjects } from "./project-enrichment.js";
 
 function bearer(req){const h=String(req.headers?.authorization||"");return h.startsWith("Bearer ")?h.slice(7).trim():"";}
 function authorized(req){const token=bearer(req);const allowed=[process.env.CRON_SECRET,process.env.BUILDSCOUT_SYNC_SECRET].filter(Boolean);return allowed.length>0&&allowed.includes(token);}
@@ -18,7 +19,14 @@ export async function runSourceSync(req,res,source,fetchRecords){
   try{
     const sourceReport=await fetchRecords({maxRecords,pageSize});
     const persisted=await syncProjects(source.name,sourceReport.projects);
-    const report={source:source.name,sourceId:source.id,startedAt,completedAt:new Date().toISOString(),requestedMax:maxRecords,pageSize,fetched:sourceReport.fetched,eligible:sourceReport.eligible,rejected:sourceReport.rejected,duplicates:sourceReport.duplicates+persisted.duplicates,existingBefore:persisted.existingBefore,inserted:persisted.inserted,updated:persisted.updated,unchanged:persisted.unchanged,processed:persisted.processed,telemetry:run?.telemetryUnavailable?"migration-required":"recorded",...(persisted.syncDiagnostics?{syncDiagnostics:persisted.syncDiagnostics}:{})};
+    let enrichment={status:"not-run",projectsMatched:0,sourcesAttached:0,companiesAttached:0};
+    try{
+      enrichment={status:"complete",...(await enrichSyncedProjects(source,sourceReport.projects))};
+    }catch(error){
+      console.error(`${source.id} enrichment failed`,error);
+      enrichment={status:"failed",message:error.message,projectsMatched:0,sourcesAttached:0,companiesAttached:0};
+    }
+    const report={source:source.name,sourceId:source.id,startedAt,completedAt:new Date().toISOString(),requestedMax:maxRecords,pageSize,fetched:sourceReport.fetched,eligible:sourceReport.eligible,rejected:sourceReport.rejected,duplicates:sourceReport.duplicates+persisted.duplicates,existingBefore:persisted.existingBefore,inserted:persisted.inserted,updated:persisted.updated,unchanged:persisted.unchanged,processed:persisted.processed,telemetry:run?.telemetryUnavailable?"migration-required":"recorded",enrichment,...(persisted.syncDiagnostics?{syncDiagnostics:persisted.syncDiagnostics}:{})};
     if(persisted.syncDiagnostics) console.info("[CHICAGO SYNC DIFF]",JSON.stringify(persisted.syncDiagnostics));
     await finishSyncRun(run,report,"success");return res.status(200).json(report);
   }catch(error){
