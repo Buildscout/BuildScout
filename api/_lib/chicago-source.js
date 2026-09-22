@@ -13,14 +13,16 @@ function first(r,keys){ for(const k of keys){ const v=clean(r?.[k]); if(v) retur
 function numberOrNull(v){ const n=Number(clean(v).replace(/[$,]/g,"")); return Number.isFinite(n)?n:null; }
 function dateOnly(v){ const s=clean(v); return s ? s.slice(0,10) : null; }
 
-function generalContractor(r){
+function contactByRole(r,roles){
   for(let i=1;i<=15;i++){
     const role=clean(r?.[`contact_${i}_type`]).toUpperCase();
     const name=clean(r?.[`contact_${i}_name`]);
-    if(name && (role.includes("GENERAL CONTRACTOR") || role==="OWNER AS GENERAL CONTRACTOR")) return name;
+    if(name && roles.some(match=>role.includes(match))) return name;
   }
   return "";
 }
+function generalContractor(r){return contactByRole(r,["GENERAL CONTRACTOR","OWNER AS GENERAL CONTRACTOR"]);}
+function developerOwner(r){return contactByRole(r,["OWNER","DEVELOPER"]);}
 
 export function normalizeChicagoRecord(r,checkedAt=new Date().toISOString()){
   // Chicago documents ID as the unique database-record identifier. PERMIT# is a
@@ -37,6 +39,7 @@ export function normalizeChicagoRecord(r,checkedAt=new Date().toISOString()){
     project_type:type,stage:"Issued",estimated_value:numberOrNull(first(r,["reported_cost","estimated_cost"])),
     opportunity_score:70,units:null,expected_start:dateOnly(first(r,["issue_date"])),
     general_contractor:generalContractor(r)||null,
+    developer:developerOwner(r)||null,
     permit_number:sourceId,source_name:CHICAGO_SOURCE.name,source_url:CHICAGO_SOURCE.portalUrl,
     last_verified:String(checkedAt).slice(0,10)
   }};
