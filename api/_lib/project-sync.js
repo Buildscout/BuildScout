@@ -7,6 +7,10 @@ const MANAGED_FIELDS = [
   "source_url", "last_verified"
 ];
 
+// Verification metadata changes every time a source is checked. It should be
+// refreshed on writes, but must not by itself make source data look changed.
+const CHANGE_DETECTION_FIELDS = MANAGED_FIELDS.filter((field) => field !== "last_verified");
+
 const NUMERIC_FIELDS = new Set(["latitude","longitude","estimated_value","opportunity_score","units"]);
 const DATE_FIELDS = new Set(["expected_start","last_verified"]);
 const COORDINATE_FIELDS = new Set(["latitude","longitude"]);
@@ -49,7 +53,7 @@ function diagnosticValue(field, value) {
 }
 
 function rowDiff(existing, incoming) {
-  return MANAGED_FIELDS.flatMap((field) => {
+  return CHANGE_DETECTION_FIELDS.flatMap((field) => {
     const existingComparable = comparable(field, existing?.[field]);
     const incomingComparable = comparable(field, incoming?.[field]);
     if (existingComparable === incomingComparable) return [];
