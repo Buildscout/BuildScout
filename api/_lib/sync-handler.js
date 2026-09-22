@@ -26,7 +26,7 @@ export async function runSourceSync(req,res,source,fetchRecords){
       console.error(`${source.id} enrichment failed`,error);
       enrichment={status:"failed",message:error.message,projectsMatched:0,sourcesAttached:0,companiesAttached:0};
     }
-    const report={source:source.name,sourceId:source.id,startedAt,completedAt:new Date().toISOString(),requestedMax:maxRecords,pageSize,fetched:sourceReport.fetched,eligible:sourceReport.eligible,rejected:sourceReport.rejected,duplicates:sourceReport.duplicates+persisted.duplicates,existingBefore:persisted.existingBefore,inserted:persisted.inserted,updated:persisted.updated,unchanged:persisted.unchanged,processed:persisted.processed,telemetry:run?.telemetryUnavailable?"migration-required":"recorded",enrichment,...(persisted.syncDiagnostics?{syncDiagnostics:persisted.syncDiagnostics}:{})};
+    const report={source:source.name,sourceId:source.id,startedAt,completedAt:new Date().toISOString(),requestedMax:maxRecords,pageSize,fetched:sourceReport.fetched,eligible:sourceReport.eligible,rejected:sourceReport.rejected,duplicates:sourceReport.duplicates+persisted.duplicates,existingBefore:persisted.existingBefore,inserted:persisted.inserted,updated:persisted.updated,unchanged:persisted.unchanged,processed:persisted.processed,telemetry:run?.telemetryUnavailable?"migration-required":"recorded",enrichment,...(sourceReport.companyRoleAudit?{companyRoleAudit:sourceReport.companyRoleAudit}:{}),...(persisted.syncDiagnostics?{syncDiagnostics:persisted.syncDiagnostics}:{})};
     if(persisted.syncDiagnostics) console.info("[CHICAGO SYNC DIFF]",JSON.stringify(persisted.syncDiagnostics));
     await finishSyncRun(run,report,"success");return res.status(200).json(report);
   }catch(error){

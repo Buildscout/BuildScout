@@ -13,16 +13,31 @@ function first(r,keys){ for(const k of keys){ const v=clean(r?.[k]); if(v) retur
 function numberOrNull(v){ const n=Number(clean(v).replace(/[$,]/g,"")); return Number.isFinite(n)?n:null; }
 function dateOnly(v){ const s=clean(v); return s ? s.slice(0,10) : null; }
 
-function contactByRole(r,roles){
+function contacts(r){
+  const out=[];
   for(let i=1;i<=15;i++){
     const role=clean(r?.[`contact_${i}_type`]).toUpperCase();
     const name=clean(r?.[`contact_${i}_name`]);
-    if(name && roles.some(match=>role.includes(match))) return name;
+    if(role&&name)out.push({role,name});
   }
-  return "";
+  return out;
 }
-function generalContractor(r){return contactByRole(r,["GENERAL CONTRACTOR","OWNER AS GENERAL CONTRACTOR"]);}
-function developerOwner(r){return contactByRole(r,["OWNER","DEVELOPER"]);}
+function exactRoleContact(r,allowedRoles){
+  const match=contacts(r).find(x=>allowedRoles.includes(x.role));
+  return match?.name||"";
+}
+function generalContractor(r){
+  // Deliberately exclude trade contractors, architects, expeditors, etc.
+  return exactRoleContact(r,["GENERAL CONTRACTOR","OWNER AS GENERAL CONTRACTOR"]);
+}
+function developerOwner(r){
+  // OWNER AS GENERAL CONTRACTOR belongs in the GC role above. OWNER and
+  // DEVELOPER are retained separately as owner/developer evidence.
+  return exactRoleContact(r,["OWNER","DEVELOPER"]);
+}
+function roleAudit(r){
+  return contacts(r).map(x=>x.role);
+}
 
 export function normalizeChicagoRecord(r,checkedAt=new Date().toISOString()){
   // Chicago documents ID as the unique database-record identifier. PERMIT# is a
@@ -40,6 +55,7 @@ export function normalizeChicagoRecord(r,checkedAt=new Date().toISOString()){
     opportunity_score:70,units:null,expected_start:dateOnly(first(r,["issue_date"])),
     general_contractor:generalContractor(r)||null,
     developer:developerOwner(r)||null,
+    source_contact_roles:roleAudit(r),
     permit_number:sourceId,source_name:CHICAGO_SOURCE.name,source_url:CHICAGO_SOURCE.portalUrl,
     last_verified:String(checkedAt).slice(0,10)
   }};
@@ -65,5 +81,13 @@ export async function fetchChicagoRecords({maxRecords=1000,pageSize=500}={}){
     if(seen.has(key)){duplicates++;continue;}
     seen.add(key);projects.push(n.project);
   }
-  return {source:CHICAGO_SOURCE,fetched:raw.length,eligible:projects.length,rejected,duplicates,projects};
+  const roleCounts={};
+  projects.forEach(project=>(project.source_contact_roles||[]).forEach(role=>{roleCounts[role]=(roleCounts[role]||0)+1;}));
+  const companyRoleAudit={
+    generalContractorProjects:projects.filter(p=>p.general_contractor).length,
+    ownerDeveloperProjects:projects.filter(p=>p.developer).length,
+    observedContactRoles:roleCounts
+  };
+  projects.forEach(project=>delete project.source_contact_roles);
+  return {source:CHICAGO_SOURCE,fetched:raw.length,eligible:projects.length,rejected,duplicates,companyRoleAudit,projects};
 }
