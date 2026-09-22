@@ -421,7 +421,7 @@ last_verified: p.last_verified
     console.error("Failed to load Supabase projects:", error);
   }
 }
-let page="dashboard", query="", selectedType="All", selectedStage="All", minValue=0;
+let page="home", query="", selectedType="All", selectedStage="All", minValue=0;
 let map, markerLayer;
 let projectMarkers = {};
 const app=document.getElementById("app");
@@ -541,21 +541,18 @@ function shell(){
   <div class="shell">
     <aside class="sidebar">
       <div class="nav">
-        ${navBtn("dashboard","▦ Dashboard")}
-        ${navBtn("projects","◉ Projects")}
-        ${navBtn("saved",`★ My Projects (${saved.length})`)}
-        ${navBtn("pipeline","▤ Sales Pipeline")}
+        ${navBtn("home","⌂ Home")}
+        ${navBtn("projects","◉ Find Projects")}
+        ${navBtn("saved",`★ Saved (${saved.length})`)}
+        ${navBtn("pipeline","▤ Pipeline")}
         ${navBtn("alerts","◇ Alerts")}
-        ${navBtn("data","⇅ Data Sources")}
-        ${navBtn("admin","⚙ Admin")}
       </div>
-      <div class="side-label">Quick filters</div>
+      <div class="side-label">Find projects</div>
       <div class="quick">
-        <button onclick="quick('All')">All</button>
+        <button onclick="quick('All')">All projects</button>
         ${["Multifamily","Commercial","Industrial","Mixed-use","Residential"].map(x=>`<button onclick="quick('${x}')">${x}</button>`).join("")}
-        ${["Pre-construction","Active","Permit approved","Planning"].map(x=>`<button onclick="quickStage('${x}')">${x}</button>`).join("")}
       </div>
-      <div class="note">V2 uses a real interactive street map. Demo records stay clearly labeled until verified permit data is imported.</div>
+      <div class="note">BuildScout turns verified construction signals into sales opportunities, project teams, plans, and next actions.</div>
     </aside>
     <main class="main" id="main"></main>
   </div>`;
@@ -563,7 +560,7 @@ function shell(){
 }
 function navBtn(id,label){return `<button class="${page===id?"active":""}" onclick="go('${id}')">${label}</button>`}
 function go(p){page=p;shell();renderPage()}
-function quick(x){selectedType=x;selectedStage="All";page="dashboard";shell();renderPage()}
+function quick(x){selectedType=x;selectedStage="All";page="projects";shell();renderPage()}
 function quickStage(x){selectedStage=x;selectedType="All";page="dashboard";shell();renderPage()}
 
 function filterBar(){
@@ -729,7 +726,39 @@ function highlightProjectCard(id){
 }
 function renderPage(){
   const main=document.getElementById("main");
-  if(page==="dashboard"){
+  if(page==="home"){
+    const pipelineCount=Object.keys(pipeline).length;
+    const planReady=projects.filter(p=>p.has_plans||p.plan_count||p.document_count).length;
+    const teamReady=projects.filter(p=>p.general_contractor||p.gc||p.developer).length;
+    main.innerHTML=`
+      <section class="bs-home-hero">
+        <div>
+          <div class="bs-eyebrow">CONSTRUCTION SALES INTELLIGENCE</div>
+          <h1>Find the right projects. Know who to call. Win more work.</h1>
+          <p>BuildScout brings verified project signals, project teams, plans and documents, and your sales workflow into one place—then uses intelligence to help you decide what to pursue next.</p>
+          <div class="bs-home-actions">
+            <button class="btn primary" onclick="go('projects')">Find Projects</button>
+            <button class="btn secondary" onclick="go('pipeline')">Open Pipeline</button>
+          </div>
+        </div>
+        <div class="bs-home-score">
+          <span>YOUR WORKSPACE</span>
+          <b>${projects.length.toLocaleString()}</b>
+          <small>projects available</small>
+          <div><strong>${saved.length}</strong> saved · <strong>${pipelineCount}</strong> in pipeline</div>
+        </div>
+      </section>
+      <section class="bs-home-grid">
+        <button class="bs-feature" onclick="go('projects')"><span>01</span><h3>Discover real opportunities</h3><p>Search construction projects by market, type, stage and value instead of digging through raw permit records.</p><b>Find projects →</b></button>
+        <button class="bs-feature" onclick="go('projects')"><span>02</span><h3>Understand the project</h3><p>See the owner, developer, GC, source signals and project details together so you know what is real and what is missing.</p><b>${teamReady.toLocaleString()} projects with team data →</b></button>
+        <button class="bs-feature" onclick="go('projects')"><span>03</span><h3>Plans where they matter</h3><p>Open authorized plans, specifications and addenda from the project itself. Plan availability is shown clearly instead of hidden behind permit data.</p><b>${planReady.toLocaleString()} currently flagged with documents →</b></button>
+        <button class="bs-feature" onclick="go('pipeline')"><span>04</span><h3>Turn intelligence into action</h3><p>Save an opportunity, move it through your pipeline, keep notes and follow-ups, and use BuildScout intelligence to focus outreach.</p><b>Work your pipeline →</b></button>
+      </section>
+      <section class="panel bs-home-how">
+        <div><div class="bs-eyebrow">WHY BUILDSCOUT</div><h2>From scattered construction data to a clear next move.</h2></div>
+        <div class="bs-steps"><span><b>1</b> Discover</span><span><b>2</b> Verify</span><span><b>3</b> View plans & team</span><span><b>4</b> Contact</span><span><b>5</b> Track & win</span></div>
+      </section>`;
+  } else if(page==="dashboard"){
     const ps = filtered().sort((a, b) => (b.score || 0) - (a.score || 0));
     main.innerHTML=`<div class="pagehead"><div><h1>Construction Intelligence</h1><div class="muted">Find projects before your competition.</div></div><button class="btn primary" onclick="go('data')">Import permit data</button></div>
       <div class="statline">
@@ -741,7 +770,7 @@ function renderPage(){
       <div class="map-wrap"><div id="map"></div><div class="listpanel">${ps.map(projectCard).join("")||"<div class='muted'>No projects match.</div>"}</div></div>`;
     setTimeout(()=>initMap(ps),0);
   } else if(page==="projects"){
-    main.innerHTML=`<div class="pagehead"><div><h1>Projects</h1><div class="muted">All demo and imported construction records.</div></div></div>${filterBar()}<div class="grid">${filtered().map(projectCard).join("")}</div>`;
+    main.innerHTML=`<div class="pagehead"><div><h1>Find Projects</h1><div class="muted">Discover opportunities, project teams, plans and the signals that make a project worth pursuing.</div></div></div>${filterBar()}<div class="grid">${filtered().map(projectCard).join("")}</div>`;
   } else if(page==="saved"){
     const ps=projects.filter(p=>saved.includes(p.id));
     main.innerHTML=`<div class="pagehead"><div><h1>My Projects</h1><div class="muted">Your active prospect list.</div></div></div><div class="grid">${ps.map(projectCard).join("")||"<div class='panel muted'>No saved projects yet.</div>"}</div>`;
@@ -1223,7 +1252,7 @@ async function addPipeline(id) {
   }
 }
 function renderPipeline(main) {
-  const stages = ["New Opportunity", "Researching", "Contacted", "Quoted"];
+  const stages = ["New Opportunity","Researching","Contacted","Qualified","Bidding","Quote Sent","Negotiation","Won","Lost"];
 
   main.innerHTML = `
     <div class="pagehead">
@@ -1266,20 +1295,16 @@ function renderPipeline(main) {
                     style="width:100%;margin-top:8px;padding:10px;box-sizing:border-box;"
                   />
 
+                  <label class="pipeline-stage-control">
+                    <span>Stage</span>
+                    <select onchange="setPipelineStage('${p.id}',this.value)">
+                      ${stages.map(option=>`<option value="${option}" ${option===stage?"selected":""}>${option}</option>`).join("")}
+                    </select>
+                  </label>
                   <div style="display:flex;gap:8px;margin-top:10px;">
-                    <button
-                      class="btn secondary"
-                      onclick="savePipelineDetails('${p.id}')"
-                    >
-                      Save
-                    </button>
-
-                    <button
-                      class="btn primary"
-                      onclick="advance('${p.id}')"
-                    >
-                      Advance →
-                    </button>
+                    <button class="btn secondary" onclick="savePipelineDetails('${p.id}')">Save notes</button>
+                    <button class="btn secondary" onclick="viewProject('${p.id}')">Open project</button>
+                    ${stage!=="Lost"&&stage!=="Won"?`<button class="btn primary" onclick="advance('${p.id}')">Next stage →</button>`:""}
                   </div>
                 </div>
               `;
@@ -1289,6 +1314,19 @@ function renderPipeline(main) {
       `).join("")}
     </div>
   `;
+}
+async function setPipelineStage(id, stage) {
+  try {
+    const userId=currentSession?.user?.id;
+    if(!userId){renderAuthScreen("Please sign in again.");return;}
+    const details=pipelineDetails[id]||{};
+    await BuildScoutBackend.updatePipeline(userId,id,stage,details.notes,details.follow_up_at);
+    pipeline[id]=stage;
+    renderPage();
+  } catch(error) {
+    console.error("Failed to update pipeline stage:",error);
+    alert("Unable to update pipeline stage. Please try again.");
+  }
 }
 async function savePipelineDetails(id) {
   try {
@@ -1340,10 +1378,8 @@ async function advance(id) {
     }
 
     const stages = [
-      "New Opportunity",
-      "Researching",
-      "Contacted",
-      "Quoted"
+      "New Opportunity","Researching","Contacted","Qualified","Bidding",
+      "Quote Sent","Negotiation","Won","Lost"
     ];
 
     const currentIndex = stages.indexOf(pipeline[id]);
