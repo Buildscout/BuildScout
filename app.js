@@ -15,17 +15,47 @@ function renderLandingPage() {
   const root=document.getElementById("app");
   root.innerHTML=`
     <div class="public-site">
-      <header class="public-nav"><div class="logo">BUILD<span>SCOUT</span></div><div><button class="btn secondary" onclick="authMode='signin';renderAuthScreen()">Sign in</button><button class="btn primary" onclick="authMode='signup';renderAuthScreen()">Start free</button></div></header>
+      <header class="public-nav">
+        <div class="logo">BUILD<span>SCOUT</span></div>
+        <nav class="public-links"><a href="#how">How it works</a><a href="#intelligence">Intelligence</a><a href="#plans">Plans</a></nav>
+        <div class="public-auth"><button class="btn secondary" onclick="authMode='signin';renderAuthScreen()">Sign in</button><button class="btn primary" onclick="authMode='signup';renderAuthScreen()">Start free</button></div>
+      </header>
       <main>
         <section class="public-hero">
-          <div><div class="bs-eyebrow">CONSTRUCTION SALES INTELLIGENCE</div><h1>Find the projects. Find the people. Win more work.</h1><p>BuildScout turns scattered construction signals into sales-ready opportunities with project teams, authorized plans and specs, verified source data, and intelligence that tells your team what to do next.</p><div class="public-actions"><button class="btn primary" onclick="authMode='signup';renderAuthScreen()">Create account</button><button class="btn secondary" onclick="authMode='signin';renderAuthScreen()">Sign in</button></div></div>
-          <div class="public-preview"><div class="preview-map"><span>PROJECT INTELLIGENCE MAP</span><b>Discover opportunities by market</b></div><div class="preview-row"><span>Project team</span><b>Know who to call</b></div><div class="preview-row"><span>Plans & specs</span><b>Open documents from the project</b></div><div class="preview-row"><span>AI next move</span><b>Turn data into outreach</b></div></div>
+          <div class="public-hero-copy">
+            <div class="public-pill"><span></span> Built for construction sales teams</div>
+            <h1>Stop chasing permits.<br><em>Start finding opportunities.</em></h1>
+            <p>BuildScout connects construction projects, project teams, plans and sales intelligence so you can find the right opportunity, know who to call, and act before the competition.</p>
+            <div class="public-actions"><button class="btn primary public-cta" onclick="authMode='signup';renderAuthScreen()">Start finding projects →</button><button class="btn secondary" onclick="authMode='signin';renderAuthScreen()">Sign in</button></div>
+            <div class="public-proof"><span>✓ Project intelligence</span><span>✓ Plans & specs</span><span>✓ Company research</span><span>✓ Sales pipeline</span></div>
+          </div>
+          <div class="product-mockup">
+            <div class="mock-top"><div class="mock-logo">B<span>S</span></div><div class="mock-search">Search projects, companies, cities…</div><div class="mock-user"></div></div>
+            <div class="mock-body"><div class="mock-side"><i></i><i></i><i></i><i></i></div><div class="mock-map">
+              <div class="map-grid"></div><span class="map-pin p1">●</span><span class="map-pin p2">●</span><span class="map-pin p3">●</span><span class="map-pin p4">●</span>
+              <div class="mock-project"><small>STRONG OPPORTUNITY · 86/100</small><b>Mixed-Use Development</b><span>Dallas, TX · $18.5M</span><div><strong>GC identified</strong><strong>24 plans</strong></div><button>View intelligence →</button></div>
+            </div></div>
+          </div>
         </section>
-        <section class="public-value"><article><b>01</b><h2>Discover</h2><p>Find real construction opportunities without treating a permit number as the finished product.</p></article><article><b>02</b><h2>Understand</h2><p>Bring project value, stage, team, plans, source confidence and activity together.</p></article><article><b>03</b><h2>Reach</h2><p>Use BuildScout intelligence to identify the right companies and next contacts.</p></article><article><b>04</b><h2>Win</h2><p>Move opportunities through one simple sales pipeline from discovery to close.</p></article></section>
+        <section class="trust-strip"><span>ONE WORKSPACE FOR</span><b>PROJECT DISCOVERY</b><i>+</i><b>PLANS & SPECS</b><i>+</i><b>COMPANY INTELLIGENCE</b><i>+</i><b>SALES EXECUTION</b></section>
+        <section class="public-section" id="how">
+          <div class="section-heading"><div class="bs-eyebrow">THE BUILDSCOUT ADVANTAGE</div><h2>Construction data is everywhere.<br>Useful intelligence isn't.</h2><p>BuildScout is designed to turn scattered signals into a simple sales workflow.</p></div>
+          <div class="advantage-grid">
+            <article><div class="feature-icon">⌖</div><span>DISCOVER</span><h3>Find opportunities worth your time</h3><p>Search by market, project type, stage and value. BuildScout keeps source records as evidence while presenting the project as the opportunity.</p></article>
+            <article id="plans"><div class="feature-icon">▱</div><span>UNDERSTAND</span><h3>Plans and project details together</h3><p>See authorized plans, specifications, project value, stage and source information from the same project workspace.</p></article>
+            <article id="intelligence"><div class="feature-icon">✦</div><span>INTELLIGENCE</span><h3>Know who to reach next</h3><p>Use project-team and company intelligence to focus research and identify the next sales action instead of starting from scratch.</p></article>
+            <article><div class="feature-icon">↗</div><span>EXECUTE</span><h3>Turn discovery into revenue</h3><p>Save opportunities, manage follow-ups and move projects through your pipeline from first research to won or lost.</p></article>
+          </div>
+        </section>
+        <section class="public-ai">
+          <div><div class="bs-eyebrow">BUILDSCOUT INTELLIGENCE</div><h2>Don't just show customers data.<br>Help them decide what to do with it.</h2><p>The goal is simple: surface what is known, what is missing, and the next useful move—without pretending uncertain data is verified.</p><button class="btn primary public-cta" onclick="authMode='signup';renderAuthScreen()">Try BuildScout →</button></div>
+          <div class="ai-card"><div class="ai-card-head"><span>✦ BUILDSCOUT NEXT MOVE</span><b>86</b></div><h3>Review plans and contact the project team</h3><div class="ai-row"><span>General contractor</span><b>Identified</b></div><div class="ai-row"><span>Plans & specs</span><b>24 available</b></div><div class="ai-row"><span>Project stage</span><b>Pre-construction</b></div><div class="ai-action">Recommended: contact estimating team before bid activity increases.</div></div>
+        </section>
+        <section class="public-final"><div><span>BUILD<span class="orange">SCOUT</span></span><h2>Your next project shouldn't be hidden in a spreadsheet.</h2><p>Find it. Understand it. Reach the right people. Track the opportunity.</p></div><button class="btn primary public-cta" onclick="authMode='signup';renderAuthScreen()">Start finding projects →</button></section>
       </main>
+      <footer class="public-footer"><div class="logo">BUILD<span>SCOUT</span></div><span>Construction intelligence for the people who build.</span><button onclick="authMode='signin';renderAuthScreen()">Sign in</button></footer>
     </div>`;
 }
-
 function renderAuthScreen(message = "") {
   const root = document.getElementById("app");
   const isSignup = authMode === "signup";
