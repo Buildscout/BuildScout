@@ -28,7 +28,7 @@ function exactRoleContact(r,allowedRoles){
 }
 function generalContractor(r){
   // Deliberately exclude trade contractors, architects, expeditors, etc.
-  return exactRoleContact(r,["GENERAL CONTRACTOR","OWNER AS GENERAL CONTRACTOR"]);
+  return exactRoleContact(r,["GENERAL CONTRACTOR","CONTRACTOR-GENERAL CONTRACTOR","OWNER AS GENERAL CONTRACTOR"]);
 }
 function developerOwner(r){
   // OWNER AS GENERAL CONTRACTOR belongs in the GC role above. OWNER and
