@@ -26,3 +26,20 @@
 .pipeline-stage-control span{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);font-weight:800}
 .pipeline-stage-control select{width:100%;background:#0c171f;border:1px solid #38505f;color:white;border-radius:8px;padding:10px}
 @media(max-width:900px){.bs-home-hero,.bs-home-how{grid-template-columns:1fr}.bs-home-grid{grid-template-columns:1fr}.bs-home-hero h1{font-size:34px}}
+
+/* Phase 22 — project intelligence cards */
+.opportunity-card{display:flex;flex-direction:column;gap:12px;cursor:default}
+.opportunity-card-top,.opportunity-source,.opportunity-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.opportunity-card-top{justify-content:space-between}.opportunity-card .score{position:static}
+.opportunity-card h3{font-size:18px;line-height:1.3;margin:0;padding:0}
+.opportunity-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.opportunity-facts>div,.project-readiness>div{background:#0c161e;border-radius:8px;padding:9px}
+.opportunity-facts small,.project-readiness small,.opportunity-next small,.project-command-strip small{display:block;color:#758a99;font-size:10px;text-transform:uppercase;letter-spacing:.6px}
+.opportunity-facts b,.project-readiness b{font-size:12px}
+.opportunity-next{background:#142431;border:1px solid #294354;border-radius:9px;padding:11px}
+.opportunity-next b{display:block;margin-top:4px;font-size:13px}
+.opportunity-source{font-size:11px;color:var(--muted);border-top:1px solid var(--border);padding-top:10px}
+.confidence-pill{border-radius:999px;padding:4px 7px;font-weight:900}.confidence-pill.good{background:#12351f;color:#7de49d}.confidence-pill.mid{background:#3a2f12;color:#f5c451}.confidence-pill.low{background:#252b33;color:#aab6bf}
+.opportunity-actions{margin-top:auto}.project-command-strip{display:flex;justify-content:space-between;align-items:center;gap:16px;background:#142431;border:1px solid #315064;border-radius:12px;padding:14px;margin-top:16px}.project-command-strip b{display:block;margin-top:5px}
+.project-readiness{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px}
+@media(max-width:700px){.opportunity-facts,.project-readiness{grid-template-columns:1fr}.project-command-strip{align-items:flex-start;flex-direction:column}}
