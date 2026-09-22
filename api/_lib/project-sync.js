@@ -70,13 +70,27 @@ function rowChanged(existing, incoming) {
 }
 
 async function getExistingBySource(sourceName) {
-  const query = new URLSearchParams({
-    select: `id,${MANAGED_FIELDS.join(",")}`,
-    source_name: `eq.${sourceName}`,
-    limit: "10000"
-  });
-  const rows = await supabaseJson(`projects?${query.toString()}`);
-  return Array.isArray(rows) ? rows : [];
+  // Supabase/PostgREST can enforce a server-side max-rows cap (commonly 1,000)
+  // even when a larger limit is requested. Page through the source records so
+  // large syncs can see every existing project and remain idempotent.
+  const pageSize = 1000;
+  const rows = [];
+
+  for (let offset = 0; ; offset += pageSize) {
+    const query = new URLSearchParams({
+      select: `id,${MANAGED_FIELDS.join(",")}`,
+      source_name: `eq.${sourceName}`,
+      order: "id.asc",
+      limit: String(pageSize),
+      offset: String(offset)
+    });
+    const page = await supabaseJson(`projects?${query.toString()}`);
+    const pageRows = Array.isArray(page) ? page : [];
+    rows.push(...pageRows);
+    if (pageRows.length < pageSize) break;
+  }
+
+  return rows;
 }
 
 async function insertRows(rows) {
