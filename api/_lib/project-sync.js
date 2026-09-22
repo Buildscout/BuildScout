@@ -9,6 +9,8 @@ const MANAGED_FIELDS = [
 
 const NUMERIC_FIELDS = new Set(["latitude","longitude","estimated_value","opportunity_score","units"]);
 const DATE_FIELDS = new Set(["expected_start","last_verified"]);
+const CHICAGO_SOURCE_NAME = "City of Chicago — Building Permits";
+const DIAGNOSTIC_SAMPLE_LIMIT = 10;
 
 function comparable(field, value) {
   if (value == null || value === "") return null;
@@ -20,10 +22,37 @@ function comparable(field, value) {
   return String(value).trim();
 }
 
+function valueType(value) {
+  if (value === null) return "null";
+  if (Array.isArray(value)) return "array";
+  return typeof value;
+}
+
+function rowDiff(existing, incoming) {
+  return MANAGED_FIELDS.flatMap((field) => {
+    const existingComparable = comparable(field, existing?.[field]);
+    const incomingComparable = comparable(field, incoming?.[field]);
+    if (existingComparable === incomingComparable) return [];
+    return [{
+      field,
+      existing: {
+        value: existing?.[field] ?? null,
+        type: valueType(existing?.[field]),
+        comparable: existingComparable,
+        comparableType: valueType(existingComparable)
+      },
+      incoming: {
+        value: incoming?.[field] ?? null,
+        type: valueType(incoming?.[field]),
+        comparable: incomingComparable,
+        comparableType: valueType(incomingComparable)
+      }
+    }];
+  });
+}
+
 function rowChanged(existing, incoming) {
-  return MANAGED_FIELDS.some((field) =>
-    comparable(field, existing?.[field]) !== comparable(field, incoming?.[field])
-  );
+  return rowDiff(existing, incoming).length > 0;
 }
 
 async function getExistingBySource(sourceName) {
@@ -73,6 +102,9 @@ export async function syncProjects(sourceName, projects) {
   const existingByPermit = new Map(existing.map((row) => [String(row.permit_number || ""), row]));
   const inserts = [];
   const updates = [];
+  const diagnosticsEnabled = sourceName === CHICAGO_SOURCE_NAME;
+  const fieldCounts = {};
+  const samples = [];
   let unchanged = 0;
   let duplicates = 0;
   const seen = new Set();
@@ -90,6 +122,20 @@ export async function syncProjects(sourceName, projects) {
       inserts.push(project);
     } else if (rowChanged(current, project)) {
       updates.push({ id: current.id, row: project });
+      if (diagnosticsEnabled) {
+        const differences = rowDiff(current, project);
+        for (const difference of differences) {
+          fieldCounts[difference.field] = (fieldCounts[difference.field] || 0) + 1;
+        }
+        if (samples.length < DIAGNOSTIC_SAMPLE_LIMIT) {
+          samples.push({
+            sourceId: permit,
+            databaseId: current.id,
+            changedFields: differences.map((difference) => difference.field),
+            differences
+          });
+        }
+      }
     } else {
       unchanged += 1;
     }
@@ -104,7 +150,16 @@ export async function syncProjects(sourceName, projects) {
     updated,
     unchanged,
     duplicates,
-    processed: inserted + updated + unchanged
+    processed: inserted + updated + unchanged,
+    ...(diagnosticsEnabled ? {
+      syncDiagnostics: {
+        differingRecords: updates.length,
+        sampledRecords: samples.length,
+        sampleLimit: DIAGNOSTIC_SAMPLE_LIMIT,
+        fieldCounts,
+        samples
+      }
+    } : {})
   };
 }
 
