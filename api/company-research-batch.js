@@ -1,8 +1,10 @@
 import { getCompanyResearchBatch, claimCompanyResearch } from "./_lib/company-research.js";
 
+function bearer(req){const h=String(req.headers?.authorization||"");return h.startsWith("Bearer ")?h.slice(7).trim():"";}
 function authorized(req){
-  const expected=process.env.BUILDSCOUT_SECRET;
-  return Boolean(expected)&&String(req.headers?.authorization||"")===`Bearer ${expected}`;
+  const token=bearer(req);
+  const allowed=[process.env.CRON_SECRET,process.env.BUILDSCOUT_SYNC_SECRET].filter(Boolean);
+  return allowed.length>0&&allowed.includes(token);
 }
 
 export default async function handler(req,res){
