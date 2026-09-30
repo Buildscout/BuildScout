@@ -3,7 +3,7 @@ import { supabaseJson, chunk } from "./supabase-rest.js";
 function clean(v){return String(v==null?"":v).trim();}
 function sourceTypeFor(sourceName){return /city|county|state|department|government/i.test(clean(sourceName))?"official_public_record":"licensed_provider";}
 function confidenceFor(project){return project?.source_url&&project?.source_name?"source-backed":"unknown";}
-function normalizeCompanyName(v){return clean(v).toLowerCase().replace(/[^a-z0-9]+/g," ").trim();}
+function normalizeCompanyName(v){return clean(v).toLowerCase().replace(/[^a-z0-9]+/g," ").trim();}\nfunction validCompanyName(v){const raw=clean(v);return Boolean(raw)&&raw.toLowerCase()!=="unknown"&&Boolean(normalizeCompanyName(raw));}
 
 async function ensureCanonicalCompanies(companyRows){
   const unique=new Map();
@@ -48,9 +48,9 @@ export async function enrichSyncedProjects(source,projects=[]){
     if(!projectId)continue;
     sourceRows.push({project_id:projectId,source_name:source.name,source_type:sourceTypeFor(source.name),source_record_id:key,source_url:p.source_url||null,observed_at:new Date().toISOString(),verified_at:p.last_verified||new Date().toISOString(),confidence:confidenceFor(p),metadata:{jurisdiction:source.jurisdiction||null,authority:source.authority||null}});
     const gc=clean(p.general_contractor);
-    if(gc&&gc.toLowerCase()!=="unknown")companyRows.push({project_id:projectId,company_name:gc,role:"General Contractor",confidence:"source-backed",verified_at:p.last_verified||new Date().toISOString()});
+    if(validCompanyName(gc))companyRows.push({project_id:projectId,company_name:gc,role:"General Contractor",confidence:"source-backed",verified_at:p.last_verified||new Date().toISOString()});
     const developer=clean(p.developer);
-    if(developer&&developer.toLowerCase()!=="unknown")companyRows.push({project_id:projectId,company_name:developer,role:"Developer / Owner",confidence:"source-backed",verified_at:p.last_verified||new Date().toISOString()});
+    if(validCompanyName(developer))companyRows.push({project_id:projectId,company_name:developer,role:"Developer / Owner",confidence:"source-backed",verified_at:p.last_verified||new Date().toISOString()});
   }
   await upsertSources(sourceRows);const canonicalCompanies=await ensureCanonicalCompanies(companyRows);await upsertCompanies(companyRows);
   return{projectsMatched:ids.size,sourcesAttached:sourceRows.length,companiesAttached:companyRows.length,canonicalCompanies};
