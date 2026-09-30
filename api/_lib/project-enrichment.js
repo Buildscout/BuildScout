@@ -3,6 +3,17 @@ import { supabaseJson, chunk } from "./supabase-rest.js";
 function clean(v){return String(v==null?"":v).trim();}
 function sourceTypeFor(sourceName){return /city|county|state|department|government/i.test(clean(sourceName))?"official_public_record":"licensed_provider";}
 function confidenceFor(project){return project?.source_url&&project?.source_name?"source-backed":"unknown";}
+function normalizeCompanyName(v){return clean(v).toLowerCase().replace(/[^a-z0-9]+/g," ").trim();}
+
+async function ensureCanonicalCompanies(companyRows){
+  const unique=new Map();
+  for(const row of companyRows){const normalized_name=normalizeCompanyName(row.company_name);if(normalized_name&&!unique.has(normalized_name))unique.set(normalized_name,{normalized_name,display_name:row.company_name,confidence:row.confidence,verified_at:row.verified_at});}
+  for(const batch of chunk([...unique.values()],200)){if(batch.length)await supabaseJson("companies?on_conflict=normalized_name",{method:"POST",prefer:"resolution=ignore-duplicates,return=minimal",body:batch});}
+  const ids=new Map(),names=[...unique.keys()];
+  for(const batch of chunk(names,100)){if(!batch.length)continue;const params=new URLSearchParams({select:"id,normalized_name",normalized_name:`in.(${batch.map(v=>`"${v.replaceAll('"','\\"')}"`).join(",")})`});const rows=await supabaseJson(`companies?${params.toString()}`)||[];rows.forEach(x=>ids.set(x.normalized_name,x.id));}
+  companyRows.forEach(row=>{row.company_id=ids.get(normalizeCompanyName(row.company_name))||null;});
+  return ids.size;
+}
 
 async function getProjectIds(sourceName,permitNumbers){
   const result=new Map();
@@ -41,6 +52,6 @@ export async function enrichSyncedProjects(source,projects=[]){
     const developer=clean(p.developer);
     if(developer&&developer.toLowerCase()!=="unknown")companyRows.push({project_id:projectId,company_name:developer,role:"Developer / Owner",confidence:"source-backed",verified_at:p.last_verified||new Date().toISOString()});
   }
-  await upsertSources(sourceRows);await upsertCompanies(companyRows);
-  return{projectsMatched:ids.size,sourcesAttached:sourceRows.length,companiesAttached:companyRows.length};
+  await upsertSources(sourceRows);const canonicalCompanies=await ensureCanonicalCompanies(companyRows);await upsertCompanies(companyRows);
+  return{projectsMatched:ids.size,sourcesAttached:sourceRows.length,companiesAttached:companyRows.length,canonicalCompanies};
 }
