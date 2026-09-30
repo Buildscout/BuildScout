@@ -7,7 +7,7 @@ function normalizeCompanyName(v){return clean(v).toLowerCase().replace(/[^a-z0-9
 
 async function ensureCanonicalCompanies(companyRows){
   const unique=new Map();
-  for(const row of companyRows){const normalized_name=normalizeCompanyName(row.company_name);if(normalized_name&&!unique.has(normalized_name))unique.set(normalized_name,{normalized_name,display_name:row.company_name,confidence:row.confidence,verified_at:row.verified_at});}
+  for(const row of companyRows){const normalized_name=normalizeCompanyName(row.company_name);if(normalized_name&&!unique.has(normalized_name))unique.set(normalized_name,{name:row.company_name,normalized_name,display_name:row.company_name,confidence:row.confidence,verified_at:row.verified_at});}
   for(const batch of chunk([...unique.values()],200)){if(batch.length)await supabaseJson("companies?on_conflict=normalized_name",{method:"POST",prefer:"resolution=ignore-duplicates,return=minimal",body:batch});}
   const ids=new Map(),names=[...unique.keys()];
   for(const batch of chunk(names,100)){if(!batch.length)continue;const params=new URLSearchParams({select:"id,normalized_name",normalized_name:`in.(${batch.map(v=>`"${v.replaceAll('"','\\"')}"`).join(",")})`});const rows=await supabaseJson(`companies?${params.toString()}`)||[];rows.forEach(x=>ids.set(x.normalized_name,x.id));}
