@@ -14,7 +14,7 @@ export default async function handler(req,res){
   if(!companyResearchProviderConfigured())return res.status(503).json({status:"provider_not_configured",required:["APOLLO_API_KEY"]});
   const limit=Math.max(1,Math.min(Number(req.query?.limit??req.body?.limit)||3,25));
   const batch=await getCompanyResearchBatch(limit);
-  const report={requested:limit,available:batch.length,claimed:0,complete:0,noMatch:0,failed:0,results:[]};
+  const report={requested:limit,available:batch.length,claimed:0,complete:0,noMatch:0,deferred:0,failed:0,results:[]};
   for(const item of batch){
     const claimed=await claimCompanyResearch(item.queue.id);
     if(!claimed)continue;
@@ -22,7 +22,7 @@ export default async function handler(req,res){
     try{
       const result=await researchCompany(item.company);
       const saved=await saveCompanyResearch(item.company,{...item.queue,...claimed},result);
-      if(saved.status==="complete")report.complete++;else if(saved.status==="deferred"){report.results.push({companyId:item.company.company_id,name:item.company.company_name,status:"deferred",evidence:result.evidence||null});continue;}else report.noMatch++;
+      if(saved.status==="complete")report.complete++;else if(saved.status==="deferred"){report.deferred++;report.results.push({companyId:item.company.company_id,name:item.company.company_name,status:"deferred",evidence:result.evidence||null});continue;}else report.noMatch++;
     }catch(error){
       await failCompanyResearch({...item.queue,...claimed},error.message);
       report.failed++;
