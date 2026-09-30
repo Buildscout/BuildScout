@@ -3,6 +3,7 @@
 
 create table if not exists public.companies (
   id uuid primary key default gen_random_uuid(),
+  name text not null,
   normalized_name text,
   display_name text,
   website text,
@@ -16,6 +17,8 @@ create table if not exists public.companies (
 );
 
 -- Repair/upgrade an older or partially-created companies table before indexes/backfill.
+-- BuildScout already had a legacy companies table whose name column is NOT NULL.
+alter table public.companies add column if not exists name text;
 alter table public.companies add column if not exists normalized_name text;
 alter table public.companies add column if not exists display_name text;
 alter table public.companies add column if not exists website text;
@@ -36,11 +39,15 @@ $$;
 
 -- Backfill any existing canonical rows that came from an earlier schema.
 update public.companies
-set normalized_name=public.buildscout_normalize_company_name(display_name)
-where normalized_name is null and display_name is not null;
+set display_name=coalesce(display_name,name)
+where display_name is null;
 
-insert into public.companies(normalized_name,display_name,confidence,verified_at)
-select normalized_name,min(company_name),max(confidence),max(verified_at)
+update public.companies
+set normalized_name=public.buildscout_normalize_company_name(coalesce(display_name,name))
+where normalized_name is null;
+
+insert into public.companies(name,normalized_name,display_name,confidence,verified_at)
+select min(company_name),normalized_name,min(company_name),max(confidence),max(verified_at)
 from (
   select public.buildscout_normalize_company_name(company_name) normalized_name,company_name,confidence,verified_at
   from public.project_companies
