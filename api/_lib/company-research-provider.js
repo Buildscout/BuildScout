@@ -1,14 +1,41 @@
 function clean(v){return String(v==null?"":v).trim();}
 function normalizedName(v){return clean(v).toLowerCase().replace(/[^a-z0-9]+/g," ").trim();}
 const LEGAL_SUFFIXES=new Set(["llc","inc","incorporated","corp","corporation","co","company","ltd","limited","lp","llp","pllc"]);
-function identityTokens(v){return normalizedName(v).split(" ").filter(Boolean).filter(x=>!LEGAL_SUFFIXES.has(x));}
+
+function identityTokens(v){
+  return normalizedName(v).split(" ").filter(Boolean).filter(x=>!LEGAL_SUFFIXES.has(x));
+}
+
+function tokenEditDistance(a,b){
+  if(a===b)return 0;
+  if(!a.length)return b.length;
+  if(!b.length)return a.length;
+  const prev=Array.from({length:b.length+1},(_,i)=>i);
+  for(let i=1;i<=a.length;i++){
+    const curr=[i];
+    for(let j=1;j<=b.length;j++){
+      curr[j]=Math.min(curr[j-1]+1,prev[j]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));
+    }
+    for(let j=0;j<curr.length;j++)prev[j]=curr[j];
+  }
+  return prev[b.length];
+}
+
 function namesAgree(requested,returned){
   const a=identityTokens(requested),b=identityTokens(returned);
-  if(!a.length||!b.length)return false;
-  if(a.join(" ")===b.join(" "))return true;
-  const as=new Set(a),bs=new Set(b),shared=[...as].filter(x=>bs.has(x));
-  const coverage=shared.length/Math.max(as.size,bs.size);
-  return shared.length>=2&&coverage>=0.8;
+  if(!a.length||!b.length||a.length!==b.length)return false;
+  const used=new Set();
+  let fuzzyMatches=0;
+  for(const token of a){
+    const exactIndex=b.findIndex((candidate,index)=>!used.has(index)&&candidate===token);
+    if(exactIndex>=0){used.add(exactIndex);continue;}
+    const fuzzyIndex=b.findIndex((candidate,index)=>!used.has(index)&&token.length>=5&&candidate.length>=5&&tokenEditDistance(token,candidate)<=1);
+    if(fuzzyIndex<0)return false;
+    used.add(fuzzyIndex);
+    fuzzyMatches++;
+    if(fuzzyMatches>1)return false;
+  }
+  return true;
 }
 
 export function companyResearchProviderConfigured(){return Boolean(clean(process.env.APOLLO_API_KEY));}
