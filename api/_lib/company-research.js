@@ -5,28 +5,32 @@ function boundedLimit(v){const n=Number(v);return Number.isFinite(n)?Math.max(1,
 
 export async function getCompanyResearchBatch(limit=25){
   const params=new URLSearchParams({
-    select:"id,project_company_id,status,priority,attempt_count,next_attempt_at",
+    select:"id,company_id,status,priority,attempt_count,next_attempt_at",
     status:"eq.pending",
     order:"priority.desc,created_at.asc",
     limit:String(boundedLimit(limit))
   });
-  const queue=await supabaseJson(`company_enrichment_queue?${params.toString()}`)||[];
+  const queue=await supabaseJson(`canonical_company_enrichment_queue?${params.toString()}`)||[];
   const now=new Date().toISOString();
   const ready=queue.filter(x=>!x.next_attempt_at||x.next_attempt_at<=now);
   if(!ready.length)return[];
-  const ids=ready.map(x=>x.project_company_id);
+  const ids=ready.map(x=>x.company_id);
   const companyParams=new URLSearchParams({
-    select:"id,project_id,company_id,company_name,role,website,phone,source_id,confidence,verified_at",
+    select:"id,name,display_name,normalized_name,website,phone,provider,provider_record_id,confidence,verified_at",
     id:`in.(${ids.join(",")})`
   });
-  const companies=await supabaseJson(`project_companies?${companyParams.toString()}`)||[];
+  const companies=await supabaseJson(`companies?${companyParams.toString()}`)||[];
   const byId=new Map(companies.map(x=>[x.id,x]));
-  return ready.map(queueItem=>({queue:queueItem,company:byId.get(queueItem.project_company_id)||null})).filter(x=>x.company);
+  return ready.map(queueItem=>{
+    const canonical=byId.get(queueItem.company_id);
+    if(!canonical)return null;
+    return{queue:queueItem,company:{id:canonical.id,company_id:canonical.id,company_name:canonical.display_name||canonical.name,website:canonical.website,phone:canonical.phone,confidence:canonical.confidence,verified_at:canonical.verified_at}};
+  }).filter(Boolean);
 }
 
 export async function claimCompanyResearch(queueId){
   const now=new Date().toISOString();
-  const rows=await supabaseJson(`company_enrichment_queue?id=eq.${encodeURIComponent(queueId)}&status=eq.pending`,{
+  const rows=await supabaseJson(`canonical_company_enrichment_queue?id=eq.${encodeURIComponent(queueId)}&status=eq.pending`,{
     method:"PATCH",prefer:"return=representation",
     body:{status:"researching",last_attempt_at:now,updated_at:now}
   })||[];
@@ -35,22 +39,20 @@ export async function claimCompanyResearch(queueId){
 
 export async function saveCompanyResearch(company,queueItem,result={}){
   const now=new Date().toISOString();
-  const website=clean(result.website),phone=clean(result.phone);
-  const evidence=clean(result.evidence);
+  const website=clean(result.website),phone=clean(result.phone),evidence=clean(result.evidence);
   if((website||phone)&&!evidence)throw new Error("Company facts require evidence.");
   if(website||phone){
-    const update={verified_at:now};
+    const update={verified_at:now,provider:"apollo"};
     if(website)update.website=website;
     if(phone)update.phone=phone;
-    await supabaseJson(`project_companies?id=eq.${encodeURIComponent(company.id)}`,{method:"PATCH",prefer:"return=minimal",body:update});
-    if(company.company_id){
-      await supabaseJson(`companies?id=eq.${encodeURIComponent(company.company_id)}`,{method:"PATCH",prefer:"return=minimal",body:{...update,provider:"apollo"}});
-      await supabaseJson(`project_companies?company_id=eq.${encodeURIComponent(company.company_id)}`,{method:"PATCH",prefer:"return=minimal",body:update});
-      await supabaseJson(`company_enrichment_queue?project_company_id=in.(${encodeURIComponent(company.id)})`,{method:"PATCH",prefer:"return=minimal",body:{updated_at:now}});
-    }
+    await supabaseJson(`companies?id=eq.${encodeURIComponent(company.company_id)}`,{method:"PATCH",prefer:"return=minimal",body:update});
+    const relationshipUpdate={verified_at:now};
+    if(website)relationshipUpdate.website=website;
+    if(phone)relationshipUpdate.phone=phone;
+    await supabaseJson(`project_companies?company_id=eq.${encodeURIComponent(company.company_id)}`,{method:"PATCH",prefer:"return=minimal",body:relationshipUpdate});
   }
   const status=(website||phone)?"complete":"no_match";
-  await supabaseJson(`company_enrichment_queue?id=eq.${encodeURIComponent(queueItem.id)}`,{
+  await supabaseJson(`canonical_company_enrichment_queue?id=eq.${encodeURIComponent(queueItem.id)}`,{
     method:"PATCH",prefer:"return=minimal",
     body:{status,attempt_count:Number(queueItem.attempt_count||0)+1,last_attempt_at:now,next_attempt_at:null,result_summary:evidence||"No verified public company contact channel found.",updated_at:now}
   });
@@ -58,10 +60,8 @@ export async function saveCompanyResearch(company,queueItem,result={}){
 }
 
 export async function failCompanyResearch(queueItem,message){
-  const attempts=Number(queueItem.attempt_count||0)+1;
-  const retry=attempts<3;
-  const now=new Date().toISOString();
-  await supabaseJson(`company_enrichment_queue?id=eq.${encodeURIComponent(queueItem.id)}`,{
+  const attempts=Number(queueItem.attempt_count||0)+1,retry=attempts<3,now=new Date().toISOString();
+  await supabaseJson(`canonical_company_enrichment_queue?id=eq.${encodeURIComponent(queueItem.id)}`,{
     method:"PATCH",prefer:"return=minimal",
     body:{status:retry?"pending":"failed",attempt_count:attempts,last_attempt_at:now,next_attempt_at:retry?new Date(Date.now()+attempts*60*60*1000).toISOString():null,result_summary:clean(message)||"Company research failed.",updated_at:now}
   });
