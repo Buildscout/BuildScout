@@ -5,7 +5,9 @@
 delete from public.project_companies
 where public.buildscout_normalize_company_name(company_name) is null;
 
--- Verification: invalid relationships should be zero.
+-- Verification: both counts should be zero.
 select
-  count(*) as invalid_company_relationships_remaining,
-  (select count(*) from public.project_companies where company_id is null) as unlinked_company_relationships_remaining;
+  (select count(*) from public.project_companies
+   where public.buildscout_normalize_company_name(company_name) is null) as invalid_company_relationships_remaining,
+  (select count(*) from public.project_companies
+   where company_id is null) as unlinked_company_relationships_remaining;
