@@ -39,10 +39,11 @@ export async function claimCompanyResearch(queueId){
 
 export async function saveCompanyResearch(company,queueItem,result={}){
   const now=new Date().toISOString();
-  const website=clean(result.website),phone=clean(result.phone),evidence=clean(result.evidence);
+  const website=clean(result.website),phone=clean(result.phone),evidence=clean(result.evidence),providerRecordId=clean(result.providerRecordId);
   if((website||phone)&&!evidence)throw new Error("Company facts require evidence.");
   if(website||phone){
     const update={verified_at:now,provider:"apollo"};
+    if(providerRecordId)update.provider_record_id=providerRecordId;
     if(website)update.website=website;
     if(phone)update.phone=phone;
     await supabaseJson(`companies?id=eq.${encodeURIComponent(company.company_id)}`,{method:"PATCH",prefer:"return=minimal",body:update});
