@@ -52,6 +52,15 @@ export async function saveCompanyResearch(company,queueItem,result={}){
     if(phone)relationshipUpdate.phone=phone;
     await supabaseJson(`project_companies?company_id=eq.${encodeURIComponent(company.company_id)}`,{method:"PATCH",prefer:"return=minimal",body:relationshipUpdate});
   }
+  if(result.status==="deferred"){
+    const attempts=Number(queueItem.attempt_count||0)+1;
+    const retryAt=new Date(Date.now()+24*60*60*1000).toISOString();
+    await supabaseJson(`canonical_company_enrichment_queue?id=eq.${encodeURIComponent(queueItem.id)}`,{
+      method:"PATCH",prefer:"return=minimal",
+      body:{status:"pending",attempt_count:attempts,last_attempt_at:now,next_attempt_at:retryAt,result_summary:evidence||"Apollo organization search is not enabled for the configured API key (HTTP 403).",updated_at:now}
+    });
+    return{status:"deferred",website:null,phone:null};
+  }
   const status=(website||phone)?"complete":"no_match";
   await supabaseJson(`canonical_company_enrichment_queue?id=eq.${encodeURIComponent(queueItem.id)}`,{
     method:"PATCH",prefer:"return=minimal",
