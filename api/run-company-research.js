@@ -9,10 +9,10 @@ function authorized(req){
 }
 
 export default async function handler(req,res){
-  if(req.method!=="POST")return res.status(405).json({error:"Method not allowed"});
+  if(!["GET","POST"].includes(req.method)){res.setHeader("Allow","GET, POST");return res.status(405).json({error:"Method not allowed"});}
   if(!authorized(req))return res.status(401).json({error:"Unauthorized"});
   if(!companyResearchProviderConfigured())return res.status(503).json({status:"provider_not_configured",required:["APOLLO_API_KEY"]});
-  const limit=Math.max(1,Math.min(Number(req.body?.limit)||10,25));
+  const limit=Math.max(1,Math.min(Number(req.query?.limit??req.body?.limit)||3,25));
   const batch=await getCompanyResearchBatch(limit);
   const report={requested:limit,available:batch.length,claimed:0,complete:0,noMatch:0,failed:0};
   for(const item of batch){
