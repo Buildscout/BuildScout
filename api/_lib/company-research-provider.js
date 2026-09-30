@@ -59,6 +59,8 @@ export async function researchCompany(company){
   if(!org)return await fallbackSearch(key,company);
   const returnedName=clean(org.name);
   if(!namesAgree(company.company_name,returnedName)){
+    const fallback=await fallbackSearch(key,company);
+    if(fallback.status==="matched")return fallback;
     return{configured:true,status:"rejected_match",website:null,phone:null,evidence:`Rejected Apollo organization ${clean(org.id)||"unknown"}: returned name "${returnedName||"unknown"}" did not safely match source company "${company.company_name}".`};
   }
   const website=normalizeWebsite(org.website_url),phone=clean(org.primary_phone?.number||org.phone)||null;
