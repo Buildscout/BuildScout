@@ -4,15 +4,15 @@ function clean(v){return String(v==null?"":v).trim();}
 function boundedLimit(v){const n=Number(v);return Number.isFinite(n)?Math.max(1,Math.min(Math.trunc(n),100)):25;}
 
 export async function getCompanyResearchBatch(limit=25){
+  const now=new Date().toISOString();
   const params=new URLSearchParams({
     select:"id,company_id,status,priority,attempt_count,next_attempt_at",
     status:"eq.pending",
+    or:`(next_attempt_at.is.null,next_attempt_at.lte.${now})`,
     order:"priority.desc,created_at.asc",
     limit:String(boundedLimit(limit))
   });
-  const queue=await supabaseJson(`canonical_company_enrichment_queue?${params.toString()}`)||[];
-  const now=new Date().toISOString();
-  const ready=queue.filter(x=>!x.next_attempt_at||x.next_attempt_at<=now);
+  const ready=await supabaseJson(`canonical_company_enrichment_queue?${params.toString()}`)||[];
   if(!ready.length)return[];
   const ids=ready.map(x=>x.company_id);
   const companyParams=new URLSearchParams({
