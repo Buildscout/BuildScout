@@ -40,7 +40,7 @@ function namesAgree(requested,returned){
 
 export function companyResearchProviderConfigured(){return Boolean(clean(process.env.APOLLO_API_KEY));}
 
-function normalizeWebsite(value){
+function organizationDomain(org){const raw=clean(org?.primary_domain||org?.domain||org?.website_url);if(!raw)return null;try{return new URL(/^https?:\/\//i.test(raw)?raw:`https://${raw}`).hostname.replace(/^www\./i,"").toLowerCase();}catch{return raw.replace(/^https?:\/\//i,"").replace(/^www\./i,"").split("/")[0].toLowerCase()||null;}}\n\nfunction normalizeWebsite(value){
   const raw=clean(value);if(!raw)return null;
   try{const url=new URL(/^https?:\/\//i.test(raw)?raw:`https://${raw}`);return url.protocol==="http:"||url.protocol==="https:"?url.toString():null;}catch{return null;}
 }
@@ -53,12 +53,14 @@ export async function researchCompany(company){
   const response=await fetch(`https://api.apollo.io/api/v1/organizations/enrich?${params.toString()}`,{
     method:"GET",headers:{"X-Api-Key":key,accept:"application/json","Content-Type":"application/json"}
   });
-  if(response.status===404)return{configured:true,status:"no_match",website:null,phone:null,evidence:null};
+  if(response.status===404){return await fallbackSearch(key,company);}
   if(!response.ok)throw new Error(`Apollo organization enrichment returned HTTP ${response.status}`);
   const data=await response.json(),org=data?.organization||null;
-  if(!org)return{configured:true,status:"no_match",website:null,phone:null,evidence:null};
+  if(!org)return await fallbackSearch(key,company);
   const returnedName=clean(org.name);
   if(!namesAgree(company.company_name,returnedName)){
+    const fallback=await fallbackSearch(key,company);
+    if(fallback.status==="matched")return fallback;
     return{configured:true,status:"rejected_match",website:null,phone:null,evidence:`Rejected Apollo organization ${clean(org.id)||"unknown"}: returned name "${returnedName||"unknown"}" did not safely match source company "${company.company_name}".`};
   }
   const website=normalizeWebsite(org.website_url),phone=clean(org.primary_phone?.number||org.phone)||null;
