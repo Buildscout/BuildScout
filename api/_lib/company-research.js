@@ -42,7 +42,7 @@ export async function saveCompanyResearch(company,queueItem,result={}){
   const website=clean(result.website),phone=clean(result.phone),evidence=clean(result.evidence),providerRecordId=clean(result.providerRecordId);
   if((website||phone)&&!evidence)throw new Error("Company facts require evidence.");
   if(website||phone){
-    const update={verified_at:now,provider:"apollo"};
+    const update={verified_at:now,provider:clean(result.provider)||"apollo"};
     if(providerRecordId)update.provider_record_id=providerRecordId;
     if(website)update.website=website;
     if(phone)update.phone=phone;
@@ -71,7 +71,7 @@ export async function saveCompanyResearch(company,queueItem,result={}){
     });
     return{status:"deferred",website:null,phone:null};
   }
-  const status=(website||phone)?"complete":"no_match";
+  const status=(result.providerRecordId&&website)?"complete":"no_match";
   await supabaseJson(`canonical_company_enrichment_queue?id=eq.${encodeURIComponent(queueItem.id)}`,{
     method:"PATCH",prefer:"return=minimal",
     body:{status,attempt_count:Number(queueItem.attempt_count||0)+1,last_attempt_at:now,next_attempt_at:null,result_summary:evidence||"No verified public company contact channel found.",updated_at:now}
