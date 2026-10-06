@@ -71,7 +71,7 @@ export async function saveCompanyResearch(company,queueItem,result={}){
     });
     return{status:"deferred",website:null,phone:null};
   }
-  const status=(result.providerRecordId&&website)?"complete":"no_match";
+  const status=(result.status==="matched"&&website)?"complete":"no_match";
   await supabaseJson(`canonical_company_enrichment_queue?id=eq.${encodeURIComponent(queueItem.id)}`,{
     method:"PATCH",prefer:"return=minimal",
     body:{status,attempt_count:Number(queueItem.attempt_count||0)+1,last_attempt_at:now,next_attempt_at:null,result_summary:evidence||"No verified public company contact channel found.",updated_at:now}
