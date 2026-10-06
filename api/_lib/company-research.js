@@ -67,7 +67,7 @@ export async function saveCompanyResearch(company,queueItem,result={}){
     // Keep deferred work pending so it can resume automatically when the
     // provider/access condition changes. Use a long backoff for provider
     // access issues and domain-discovery gaps rather than burning credits.
-    const retryAt=new Date(Date.now()+7*24*60*60*1000).toISOString();
+    const retryAt=new Date(Date.now()+60*60*1000).toISOString();
     await supabaseJson(`canonical_company_enrichment_queue?id=eq.${encodeURIComponent(queueItem.id)}`,{
       method:"PATCH",prefer:"return=minimal",
       body:{
