@@ -33,15 +33,14 @@ async function enrichByDomain(key,company){
 export function companyResearchProviderConfigured(){return Boolean(clean(process.env.APOLLO_API_KEY));}
 
 export async function researchCompany(company){
-  const key=clean(process.env.APOLLO_API_KEY);
-  if(!key)return{configured:false,status:"not_configured"};
-  if(!clean(company.website)){
-    if(!domainDiscoveryConfigured())return{configured:true,status:"needs_domain",website:null,phone:null,evidence:"Deferred: no verified company domain is available and no domain discovery provider is configured."};
+  let website=clean(company.website);
+  if(!website){
+    if(!domainDiscoveryConfigured())return{configured:Boolean(clean(process.env.APOLLO_API_KEY)),status:"needs_domain",website:null,phone:null,evidence:"Deferred: no verified company domain is available and no domain discovery provider is configured."};
     const discovery=await discoverCompanyDomain(company);
-    if(discovery.status!=="matched"){
-      return{configured:true,status:discovery.status==="provider_error"?"deferred":"needs_domain",website:null,phone:null,evidence:discovery.evidence};
-    }
-    company={...company,website:`https://${discovery.domain}`};
+    if(discovery.status!=="matched")return{configured:Boolean(clean(process.env.APOLLO_API_KEY)),status:discovery.status==="provider_error"?"deferred":"needs_domain",website:null,phone:null,evidence:discovery.evidence};
+    website=`https://${discovery.domain}`;
   }
-  return enrichByDomain(key,company);
+  const key=clean(process.env.APOLLO_API_KEY);
+  if(!key)return{configured:true,status:"matched",website,phone:null,provider:"brave",providerRecordId:null,evidence:`Verified website "${website}" discovered; Apollo enrichment is unavailable, so the verified website was saved without paid enrichment.`};
+  return enrichByDomain(key,{...company,website});
 }
