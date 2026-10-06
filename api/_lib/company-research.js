@@ -4,15 +4,25 @@ function clean(v){return String(v==null?"":v).trim();}
 function boundedLimit(v){const n=Number(v);return Number.isFinite(n)?Math.max(1,Math.min(Math.trunc(n),250)):25;}
 
 export async function getCompanyResearchBatch(limit=25){
+  const target=boundedLimit(limit);
   const now=new Date().toISOString();
-  const params=new URLSearchParams({
-    select:"id,company_id,status,priority,attempt_count,next_attempt_at",
-    status:"eq.pending",
-    or:`(next_attempt_at.is.null,next_attempt_at.lte.${now})`,
-    order:"priority.desc,created_at.asc",
-    limit:String(boundedLimit(limit))
-  });
-  const ready=await supabaseJson(`canonical_company_enrichment_queue?${params.toString()}`)||[];
+  const ready=[];
+  // Supabase/PostgREST may cap a single response at 100 rows. Page explicitly
+  // so a requested 250-company batch actually retrieves the full batch.
+  for(let offset=0;ready.length<target;offset+=100){
+    const pageSize=Math.min(100,target-ready.length);
+    const params=new URLSearchParams({
+      select:"id,company_id,status,priority,attempt_count,next_attempt_at",
+      status:"eq.pending",
+      or:`(next_attempt_at.is.null,next_attempt_at.lte.${now})`,
+      order:"priority.desc,created_at.asc",
+      limit:String(pageSize),
+      offset:String(offset)
+    });
+    const page=await supabaseJson(`canonical_company_enrichment_queue?${params.toString()}`)||[];
+    ready.push(...page);
+    if(page.length<pageSize)break;
+  }
   if(!ready.length)return[];
   const ids=ready.map(x=>x.company_id);
   const companyParams=new URLSearchParams({
