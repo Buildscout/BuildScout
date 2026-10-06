@@ -1,3 +1,5 @@
+import { discoverCompanyDomain, domainDiscoveryConfigured } from "./domain-discovery.js";
+
 function clean(v){return String(v==null?"":v).trim();}
 function normalizedName(v){return clean(v).toLowerCase().replace(/[^a-z0-9]+/g," ").trim();}
 const LEGAL_SUFFIXES=new Set(["llc","inc","incorporated","corp","corporation","co","company","ltd","limited","lp","llp","pllc"]);
@@ -12,14 +14,15 @@ export async function researchCompany(company){
   const key=clean(process.env.APOLLO_API_KEY);
   if(!key)return{configured:false,status:"not_configured"};
 
-  // Safety guard: name-only Apollo enrichment can consume credits. Until BuildScout
-  // has a free domain-discovery provider, only send companies with a known website.
+  // Prefer a verified existing domain. If missing, use the optional
+  // domain-discovery provider before spending an Apollo enrichment credit.
   if(!clean(company.website)){
-    return{
-      configured:true,
-      status:"needs_domain",
-      website:null,
-      phone:null,
-      evidence:"Deferred: no verified company domain is available; Apollo name-only enrichment is disabled to protect credits."
-    };
+    if(!domainDiscoveryConfigured()){
+      return{configured:true,status:"needs_domain",website:null,phone:null,evidence:"Deferred: no verified company domain is available and no domain discovery provider is configured."};
+    }
+    const discovery=await discoverCompanyDomain(company);
+    if(discovery.status!=="matched"){
+      return{configured:true,status:discovery.status==="provider_error"?"deferred":"needs_domain",website:null,phone:null,evidence:discovery.evidence};
+    }
+    company={...company,website:`https://${discovery.domain}`};
   }const params=new URLSearchParams({name:company.company_name});if(company.website)params.set("website",company.website);const response=await fetch(`https://api.apollo.io/api/v1/organizations/enrich?${params.toString()}`,{method:"GET",headers:{"X-Api-Key":key,accept:"application/json","Content-Type":"application/json"}});if(response.status===404)return fallbackSearch(key,company);if(!response.ok)throw new Error(`Apollo organization enrichment returned HTTP ${response.status}`);const data=await response.json(),org=data?.organization||null;if(!org)return fallbackSearch(key,company);const returnedName=clean(org.name);if(!namesAgree(company.company_name,returnedName)){const fallback=await fallbackSearch(key,company);if(fallback.status==="matched")return fallback;return{configured:true,status:"rejected_match",website:null,phone:null,evidence:`Rejected Apollo organization ${clean(org.id)||"unknown"}: returned name "${returnedName||"unknown"}" did not safely match source company "${company.company_name}".`};}const website=normalizeWebsite(org.website_url),phone=clean(org.primary_phone?.number||org.phone)||null;const evidence=clean(org.id)?`Apollo organization ${org.id}; matched "${returnedName}"`:`Apollo organization enrichment; matched "${returnedName}"`;return{configured:true,status:website||phone?"matched":"no_match",website,phone,evidence,providerRecordId:clean(org.id)||null,matchedName:returnedName};}
