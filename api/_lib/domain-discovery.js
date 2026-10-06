@@ -1,5 +1,15 @@
 function clean(v){return String(v==null?"":v).trim();}
 
+function cleanCompanyName(value){
+  let name=clean(value);
+  // Permit feeds sometimes append address/phone/contact text to the company field.
+  name=name.replace(/\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b/g," ");
+  name=name.replace(/\+?1?\s*\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}/g," ");
+  name=name.replace(/\b\d{1,6}\s+[A-Z0-9][^,]{2,40},\s*[A-Z]{2}\s+\d{5}(?:-\d{4})?\b/gi," ");
+  name=name.replace(/\s+/g," ").replace(/[ ,;:-]+$/,"").trim();
+  return name;
+}
+
 function normalizeDomain(value){
   const raw=clean(value);
   if(!raw)return null;
@@ -33,7 +43,7 @@ export function domainDiscoveryConfigured(){return Boolean(clean(process.env.BRA
 export async function discoverCompanyDomain(company){
   const key=clean(process.env.BRAVE_SEARCH_API_KEY);
   if(!key)return{status:"needs_provider",domain:null,evidence:"No domain discovery provider is configured."};
-  const name=clean(company.company_name);
+  const name=cleanCompanyName(company.company_name);
   if(!name)return{status:"no_match",domain:null,evidence:"Company has no usable name."};
   const url=new URL("https://api.search.brave.com/res/v1/web/search");
   url.searchParams.set("q",`"${name}" official website`);
