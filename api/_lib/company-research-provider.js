@@ -43,7 +43,8 @@ export async function researchCompany(company){
     website=`https://${discovery.domain}`;
   }
   const key=clean(process.env.APOLLO_API_KEY);
-  if(!key)return{configured:true,status:"matched",website,phone:null,provider:"brave",providerRecordId:null,evidence:`Verified website "${website}" discovered; Apollo enrichment is unavailable, so the verified website was saved without paid enrichment.`};
+  const apolloEnabled=String(process.env.ENABLE_APOLLO_ENRICHMENT||"").toLowerCase()==="true";
+  if(!key||!apolloEnabled)return{configured:true,status:"matched",website,phone:null,provider:"brave",providerRecordId:null,evidence:`Verified website "${website}" discovered; Apollo enrichment is disabled, so the verified website was saved without paid enrichment.`};
   const enriched=await enrichByDomain(key,{...company,website});
   // Brave independently verified the domain. Apollo is supplemental: a missing
   // or non-matching Apollo organization must not erase a valid free website.
