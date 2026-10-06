@@ -52,8 +52,10 @@ function candidateDomains(companyName){
   const dashed=words.join("-");
   const compact=words.slice(0,5).join("");
   const short=words.slice(0,4).join("");
-  const bases=[joined,dashed,compact,short,words.join("_")];
-  return [...new Set(bases.flatMap(b=>[b+".com","www."+b+".com",b+".net","www."+b+".net"]))];
+  // Keep the free fallback bounded: only probe the most plausible domains
+  // so a 250-company batch cannot turn into thousands of outbound requests.
+  const bases=[joined,dashed,compact,short];
+  return [...new Set(bases.map(b=>b+".com"))];
 }
 
 async function probeDomain(domain){
