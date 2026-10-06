@@ -17,7 +17,7 @@ export default async function handler(req,res){
   const limit=Math.max(1,Math.min(Number(req.query?.limit??req.body?.limit)||25,250));
   const batch=await getCompanyResearchBatch(limit);
   const report={requested:limit,available:batch.length,claimed:0,complete:0,noMatch:0,deferred:0,failed:0,results:[]};
-  const concurrency=Math.max(1,Math.min(Number(process.env.COMPANY_RESEARCH_CONCURRENCY)||5,10));
+  const concurrency=Math.max(1,Math.min(Number(process.env.COMPANY_RESEARCH_CONCURRENCY)||10,20));
   let cursor=0;
   async function processOne(item){
     const claimed=await claimCompanyResearch(item.queue.id);
