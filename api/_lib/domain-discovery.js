@@ -111,12 +111,12 @@ export async function discoverCompanyDomain(company){
       }
     }catch{}
   }
-  for(const candidate of candidateDomains(name)){
+  const probes=await Promise.all(candidateDomains(name).map(async candidate=>{
     const domain=candidate.replace(/^www\\./i,"");
     const probe=await probeDomain(domain);
-    if(probe && titleSupportsCompany(probe.title,name)){
-      return{status:"matched",domain,evidence:`Free direct-domain verification found live site "${domain}" with supporting title "${probe.title}".`};
-    }
-  }
+    return probe && titleSupportsCompany(probe.title,name) ? {domain,title:probe.title} : null;
+  }));
+  const hit=probes.find(Boolean);
+  if(hit)return{status:"matched",domain:hit.domain,evidence:`Free direct-domain verification found live site "${hit.domain}" with supporting title "${hit.title}".`};
   return{status:"no_match",domain:null,evidence:`No sufficiently supported official domain found for "${name}" using free discovery.`};
 }
