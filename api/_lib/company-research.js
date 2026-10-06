@@ -1,7 +1,7 @@
 import { supabaseJson } from "./supabase-rest.js";
 
 function clean(v){return String(v==null?"":v).trim();}
-function boundedLimit(v){const n=Number(v);return Number.isFinite(n)?Math.max(1,Math.min(Math.trunc(n),100)):25;}
+function boundedLimit(v){const n=Number(v);return Number.isFinite(n)?Math.max(1,Math.min(Math.trunc(n),250)):25;}
 
 export async function getCompanyResearchBatch(limit=25){
   const now=new Date().toISOString();
