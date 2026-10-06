@@ -16,10 +16,16 @@ function candidateDomain(result,companyName){
   const domain=normalizeDomain(result?.url);
   if(!domain)return null;
   const target=clean(companyName).toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
-  const words=target.split(" ").filter(x=>x.length>=4&&!["construction","company","services","service","inc","incorporated","corp","corporation","llc","pllc","ltd","limited"].includes(x));
-  const hay=`${clean(result?.title)} ${clean(result?.description)} ${domain}`.toLowerCase().replace(/[^a-z0-9.]+/g," ");
+  const words=target.split(" ").filter(x=>x.length>=4&&!["construction","company","services","service","inc","incorporated","corp","corporation","llc","pllc","ltd","limited","group"].includes(x));
+  const blocked=["safer.fmcsa.dot.gov","manta.com","mapquest.com","yelp.com","yellowpages.com","bbb.org","facebook.com","linkedin.com","instagram.com"];
+  if(blocked.some(h=>domain===h||domain.endsWith("."+h)))return null;
+  const hay=`${clean(result?.title)} ${clean(result?.description)}`.toLowerCase().replace(/[^a-z0-9.]+/g," ");
+  const domainHay=domain.replace(/[^a-z0-9]+/g," ");
   const hits=words.filter(w=>hay.includes(w)).length;
-  return hits?domain:null;
+  const domainHits=words.filter(w=>domainHay.includes(w)).length;
+  if(domainHits>=1&&hits>=1)return domain;
+  if(hits>=2&&!/\\.gov$|\\.mil$/i.test(domain))return domain;
+  return null;
 }
 
 export function domainDiscoveryConfigured(){return Boolean(clean(process.env.BRAVE_SEARCH_API_KEY));}
