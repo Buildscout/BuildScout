@@ -30,6 +30,8 @@ async function enrichByDomain(key,company){
   return{configured:true,status:website||phone?"matched":"no_match",website,phone,evidence,provider:"apollo",providerRecordId:clean(org.id)||null,matchedName:returnedName};
 }
 
+export function companyResearchProviderConfigured(){return Boolean(clean(process.env.APOLLO_API_KEY));}
+
 export async function researchCompany(company){
   const key=clean(process.env.APOLLO_API_KEY);
   if(!key)return{configured:false,status:"not_configured"};
