@@ -29,12 +29,14 @@ function candidateDomain(result,companyName){
   const words=target.split(" ").filter(x=>x.length>=4&&!["construction","company","services","service","inc","incorporated","corp","corporation","llc","pllc","ltd","limited","group"].includes(x));
   const blocked=["safer.fmcsa.dot.gov","manta.com","mapquest.com","yelp.com","yellowpages.com","bbb.org","facebook.com","linkedin.com","instagram.com"];
   if(blocked.some(h=>domain===h||domain.endsWith("."+h)))return null;
-  const hay=`${clean(result?.title)} ${clean(result?.description)}`.toLowerCase().replace(/[^a-z0-9.]+/g," ");
+  const titleWords=clean(result?.title).toLowerCase().replace(/[^a-z0-9]+/g," ").split(/\s+/).filter(Boolean);
+  const descriptionWords=clean(result?.description).toLowerCase().replace(/[^a-z0-9]+/g," ").split(/\s+/).filter(Boolean);
   const domainHay=domain.replace(/[^a-z0-9]+/g," ");
-  const hits=words.filter(w=>hay.includes(w)).length;
+  const titleHits=words.filter(w=>titleWords.includes(w)).length;
+  const descriptionHits=words.filter(w=>descriptionWords.includes(w)).length;
   const domainHits=words.filter(w=>domainHay.includes(w)).length;
-  if(domainHits>=1&&hits>=1)return domain;
-  if(hits>=2&&!/\\.gov$|\\.mil$/i.test(domain))return domain;
+  if(domainHits>=1&&titleHits>=1)return domain;
+  if(titleHits>=2&&descriptionHits>=1&&!/\.gov$|\.mil$/i.test(domain))return domain;
   return null;
 }
 
@@ -46,8 +48,8 @@ export async function discoverCompanyDomain(company){
   const name=cleanCompanyName(company.company_name);
   if(!name)return{status:"no_match",domain:null,evidence:"Company has no usable name."};
   const url=new URL("https://api.search.brave.com/res/v1/web/search");
-  url.searchParams.set("q",`"${name}" official website`);
-  url.searchParams.set("count","5");
+  url.searchParams.set("q",`${name} official website`);
+  url.searchParams.set("count","10");
   const response=await fetch(url.toString(),{headers:{"X-Subscription-Token":key,"Accept":"application/json"}});
   if(response.status===401||response.status===403)return{status:"provider_error",domain:null,evidence:`Brave Search authentication/permission error (HTTP ${response.status}).`};
   if(response.status===429)return{status:"deferred",domain:null,evidence:"Brave Search rate limit reached."};
