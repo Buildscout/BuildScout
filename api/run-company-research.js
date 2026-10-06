@@ -11,10 +11,10 @@ function authorized(req){
 export default async function handler(req,res){
   if(!["GET","POST"].includes(req.method)){res.setHeader("Allow","GET, POST");return res.status(405).json({error:"Method not allowed"});}
   if(!authorized(req))return res.status(401).json({error:"Unauthorized"});
-  if(!companyResearchProviderConfigured())return res.status(503).json({status:"provider_not_configured",required:["APOLLO_API_KEY"]});
+  if(!companyResearchProviderConfigured() && !Boolean(process.env.BRAVE_SEARCH_API_KEY))return res.status(503).json({status:"provider_not_configured",required:["BRAVE_SEARCH_API_KEY"]});
   // Keep each invocation small so a misconfigured cron/manual call cannot
   // consume the remaining Apollo credit balance in one shot.
-  const limit=Math.max(1,Math.min(Number(req.query?.limit??req.body?.limit)||3,5));
+  const limit=Math.max(1,Math.min(Number(req.query?.limit??req.body?.limit)||25,100));
   const batch=await getCompanyResearchBatch(limit);
   const report={requested:limit,available:batch.length,claimed:0,complete:0,noMatch:0,deferred:0,failed:0,results:[]};
   for(const item of batch){
