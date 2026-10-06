@@ -17,8 +17,8 @@
       "schedule": "0 11 * * *"
     },
     {
-      "path": "/api/run-company-research?limit=3",
-      "schedule": "15 12 * * *"
+      "path": "/api/run-company-research?limit=250",
+      "schedule": "*/5 * * * *"
     }
   ]
 }
