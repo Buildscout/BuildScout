@@ -6,6 +6,9 @@ function boundedLimit(v){const n=Number(v);return Number.isFinite(n)?Math.max(1,
 export async function getCompanyResearchBatch(limit=25){
   const target=boundedLimit(limit);
   const now=new Date().toISOString();
+  // Recover jobs left in researching by a timed-out invocation.
+  const stale=new Date(Date.now()-15*60*1000).toISOString();
+  await supabaseJson(`canonical_company_enrichment_queue?status=eq.researching&last_attempt_at=lt.${encodeURIComponent(stale)}`,{method:"PATCH",prefer:"return=minimal",body:{status:"pending",next_attempt_at:null,updated_at:now}});
   const ready=[];
   // Supabase/PostgREST may cap a single response at 100 rows. Page explicitly
   // so a requested 250-company batch actually retrieves the full batch.
