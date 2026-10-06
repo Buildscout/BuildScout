@@ -14,22 +14,33 @@ export default async function handler(req,res){
   if(!companyResearchProviderConfigured() && !Boolean(process.env.BRAVE_SEARCH_API_KEY))return res.status(503).json({status:"provider_not_configured",required:["BRAVE_SEARCH_API_KEY"]});
   // Keep each invocation small so a misconfigured cron/manual call cannot
   // consume the remaining Apollo credit balance in one shot.
-  const limit=Math.max(1,Math.min(Number(req.query?.limit??req.body?.limit)||25,100));
+  const limit=Math.max(1,Math.min(Number(req.query?.limit??req.body?.limit)||25,250));
   const batch=await getCompanyResearchBatch(limit);
   const report={requested:limit,available:batch.length,claimed:0,complete:0,noMatch:0,deferred:0,failed:0,results:[]};
-  for(const item of batch){
+  const concurrency=Math.max(1,Math.min(Number(process.env.COMPANY_RESEARCH_CONCURRENCY)||5,10));
+  let cursor=0;
+  async function processOne(item){
     const claimed=await claimCompanyResearch(item.queue.id);
-    if(!claimed)continue;
+    if(!claimed)return;
     report.claimed++;
     try{
       const result=await researchCompany(item.company);
       const saved=await saveCompanyResearch(item.company,{...item.queue,...claimed},result);
-      if(saved.status==="complete")report.complete++;else if(saved.status==="deferred"){report.deferred++;report.results.push({companyId:item.company.company_id,name:item.company.company_name,status:"deferred",evidence:result.evidence||null});continue;}else report.noMatch++;
+      if(saved.status==="complete")report.complete++;
+      else if(saved.status==="deferred"){report.deferred++;report.results.push({companyId:item.company.company_id,name:item.company.company_name,status:"deferred",evidence:result.evidence||null});}
+      else report.noMatch++;
     }catch(error){
       await failCompanyResearch({...item.queue,...claimed},error.message);
       report.failed++;
       report.results.push({companyId:item.company.company_id,name:item.company.company_name,status:"failed",error:error.message});
     }
   }
+  async function worker(){
+    while(cursor<batch.length){
+      const item=batch[cursor++];
+      await processOne(item);
+    }
+  }
+  await Promise.all(Array.from({length:Math.min(concurrency,batch.length)},()=>worker()));
   return res.status(200).json({status:"complete",...report});
 }
