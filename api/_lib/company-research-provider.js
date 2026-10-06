@@ -18,6 +18,7 @@ async function enrichByDomain(key,company){
   if(response.status===404)return{configured:true,status:"no_match",website:company.website,phone:null,provider:"brave",evidence:`Domain "${domain}" was discovered, but Apollo has no matching organization record.`};
   if(response.status===403)return{configured:true,status:"deferred",website:company.website,phone:null,evidence:"Apollo organization enrichment is not enabled for the configured API key (HTTP 403)."};
   if(response.status===422)return{configured:true,status:"matched",website:company.website,phone:null,provider:"brave",providerRecordId:null,evidence:`Verified website "${company.website}" discovered; Apollo could not enrich this domain (HTTP 422), so the website was retained without Apollo enrichment.`};
+  if(response.status===429)return{configured:true,status:"matched",website:company.website,phone:null,provider:"brave",providerRecordId:null,evidence:`Verified website "${company.website}" discovered; Apollo rate limit was reached (HTTP 429), so the website was retained without Apollo enrichment.`};
   if(!response.ok)throw new Error(`Apollo organization enrichment returned HTTP ${response.status}`);
   const data=await response.json(),org=data?.organization||null;
   if(!org)return{configured:true,status:"no_match",website:company.website,phone:null,provider:"brave",evidence:`Domain "${domain}" was discovered, but Apollo returned no organization.`};
