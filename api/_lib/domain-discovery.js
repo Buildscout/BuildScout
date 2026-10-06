@@ -91,8 +91,8 @@ export function domainDiscoveryConfigured(){
 
 export async function discoverCompanyDomain(company){
   const key=clean(process.env.BRAVE_SEARCH_API_KEY);
-  if(!name)return{status:"no_match",domain:null,evidence:"Company has no usable name."};
   const name=cleanCompanyName(company.company_name);
+  if(!name)return{status:"no_match",domain:null,evidence:"Company has no usable name."};
   if(!name)return{status:"no_match",domain:null,evidence:"Company has no usable name."};
   // Prefer Brave when available; if it is unavailable, fall back to free
   // direct-domain probing. A domain is only accepted when the live site responds
