@@ -17,7 +17,7 @@ function normalizeDomain(value){
     const url=new URL(/^https?:\/\//i.test(raw)?raw:`https://${raw}`);
     if(!["http:","https:"].includes(url.protocol))return null;
     const host=url.hostname.replace(/^www\./i,"").toLowerCase();
-    if(!host||/^(google|linkedin|facebook|yelp|mapquest)\./i.test(host))return null;
+    if(!host||/^(google|linkedin|facebook|yelp|mapquest|nextdoor|buzzfile|dnb|crunchbase)\./i.test(host))return null;
     return host;
   }catch{return null;}
 }
@@ -27,7 +27,7 @@ function candidateDomain(result,companyName){
   if(!domain)return null;
   const target=clean(companyName).toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
   const words=target.split(" ").filter(x=>x.length>=4&&!["construction","company","services","service","inc","incorporated","corp","corporation","llc","pllc","ltd","limited","group"].includes(x));
-  const blocked=["safer.fmcsa.dot.gov","manta.com","mapquest.com","yelp.com","yellowpages.com","bbb.org","facebook.com","linkedin.com","instagram.com"];
+  const blocked=["safer.fmcsa.dot.gov","manta.com","mapquest.com","yelp.com","yellowpages.com","bbb.org","facebook.com","linkedin.com","instagram.com","nextdoor.com","buzzfile.com","chamberofcommerce.com","dnb.com","crunchbase.com"];
   if(blocked.some(h=>domain===h||domain.endsWith("."+h)))return null;
   const titleWords=clean(result?.title).toLowerCase().replace(/[^a-z0-9]+/g," ").split(/\s+/).filter(Boolean);
   const descriptionWords=clean(result?.description).toLowerCase().replace(/[^a-z0-9]+/g," ").split(/\s+/).filter(Boolean);
