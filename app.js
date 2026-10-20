@@ -1204,6 +1204,20 @@ if (score >= 90) {
             Add to pipeline
           </button>
 
+          <button
+            class="btn secondary"
+            onclick="BuildScoutScope.open('${p.id}', ${JSON.stringify(p.name || "Project")})"
+          >
+            Scope Builder
+          </button>
+
+          <button
+            class="btn secondary"
+            onclick="BuildScoutIntelligence.open('${p.id}', ${JSON.stringify(projectIdentity(p))})"
+          >
+            Project Intelligence
+          </button>
+
           ${
             Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lon))
               ? `
