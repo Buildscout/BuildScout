@@ -37,6 +37,24 @@
     document.getElementById("bs-market-modal")?.remove();
     document.body.insertAdjacentHTML("beforeend",'<div class="modal" id="bs-market-modal"><div class="modalbox"><button class="close" onclick="BuildScoutMarketplace.close()">×</button><div class="bs-eyebrow">MARKETPLACE PROJECT</div><h2>'+esc(p.name)+'</h2><p class="muted">'+esc([p.street_address,p.city,p.project_type].filter(Boolean).join(" · "))+'</p><div class="bs-project-actions"><button class="btn primary" onclick="BuildScoutProjectDocuments.open(\''+p.id+'\',\''+esc(p.name||"Project")+'\')">Plans & Specs</button><button class="btn secondary" onclick="BuildScoutMarketplace.requestBid(\''+p.id+'\')">Express interest / Bid</button></div><div class="grid" style="margin-top:16px;"><div class="panel"><small class="muted">Project value</small><h3>'+(p.estimated_value?"$"+Number(p.estimated_value).toLocaleString():"Not disclosed")+'</h3></div><div class="panel"><small class="muted">Stage</small><h3>'+esc(p.stage||"Not specified")+'</h3></div></div><div class="panel" style="margin-top:14px;"><h3>Project description</h3><p>'+esc(p.description||"The project owner has not added a description yet.")+'</p></div></div></div>');
   }
-  async function requestBid(id){const u=await uid(),client=B().getClient()||B().init(),trade=prompt("What trade are you bidding?");if(!trade)return;const r=await client.from("project_bids").insert({project_id:id,bidder_user_id:u,trade,status:"draft"});if(r.error)alert(r.error.message);else alert("You're connected to this opportunity. Your bid workspace is next.");}
+  async function requestBid(id){
+    const u=await uid(),client=B().getClient()||B().init();
+    const r=await client.from("project_trade_packages").select("id,trade,scope_summary,bid_due_at,status").eq("project_id",id).eq("status","open").order("trade");
+    if(r.error){alert(r.error.message);return;}
+    const packages=r.data||[];
+    document.getElementById("bs-market-modal")?.remove();
+    const opts=packages.length?packages.map(x=>'<option value="'+esc(x.trade)+'">'+esc(x.trade)+'</option>').join(""):'<option value="">Choose your trade</option>';
+    document.body.insertAdjacentHTML("beforeend",'<div class="modal" id="bs-market-modal"><div class="modalbox" style="width:min(760px,100%);"><button class="close" onclick="BuildScoutMarketplace.close()">×</button><div class="bs-eyebrow">SUBMIT BID</div><h2>Build your proposal</h2><p class="muted">Submit one bid for the scope you perform. Your bid remains private to you and the project owner.</p><div class="bs-bid-form"><label>Trade<select id="bid-trade">'+opts+'</select></label><label>Bid amount<input id="bid-amount" type="number" min="0" step="0.01" placeholder="0.00"></label><label class="wide">Proposal / scope notes<textarea id="bid-proposal" placeholder="Scope included, exclusions, schedule, alternates, and notes..."></textarea></label></div><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;"><button class="btn secondary" onclick="BuildScoutMarketplace.close()">Cancel</button><button class="btn primary" onclick="BuildScoutMarketplace.submitBid(' + JSON.stringify(id) + ')">Save bid</button></div><div id="bid-status" class="muted" style="margin-top:10px;"></div></div></div>');
+  }
+  async function submitBid(id){
+    const u=await uid(),client=B().getClient()||B().init();
+    const trade=document.getElementById("bid-trade")?.value, amount=Number(document.getElementById("bid-amount")?.value||0), proposal=document.getElementById("bid-proposal")?.value?.trim();
+    if(!trade){alert("Choose a trade package.");return;}
+    if(!amount || amount<0){alert("Enter a bid amount.");return;}
+    const r=await client.from("project_bids").insert({project_id:id,bidder_user_id:u,trade,bid_amount:amount,proposal_text:proposal||null,status:"draft"});
+    if(r.error){document.getElementById("bid-status").textContent=r.error.message;return;}
+    alert("Bid saved. Next we'll add proposal uploads and final submission.");
+    close();
+  }
   window.BuildScoutMarketplace={openPost,create,close,render,filter,openProject,requestBid};
 })();
