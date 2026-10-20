@@ -46,6 +46,26 @@
     const opts=packages.length?packages.map(x=>'<option value="'+esc(x.trade)+'">'+esc(x.trade)+'</option>').join(""):'<option value="">Choose your trade</option>';
     document.body.insertAdjacentHTML("beforeend",'<div class="modal" id="bs-market-modal"><div class="modalbox" style="width:min(760px,100%);"><button class="close" onclick="BuildScoutMarketplace.close()">×</button><div class="bs-eyebrow">SUBMIT BID</div><h2>Build your proposal</h2><p class="muted">Submit one bid for the scope you perform. Your bid remains private to you and the project owner.</p><div class="bs-bid-form"><label>Trade<select id="bid-trade">'+opts+'</select></label><label>Bid amount<input id="bid-amount" type="number" min="0" step="0.01" placeholder="0.00"></label><label class="wide">Proposal / scope notes<textarea id="bid-proposal" placeholder="Scope included, exclusions, schedule, alternates, and notes..."></textarea></label></div><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;"><button class="btn secondary" onclick="BuildScoutMarketplace.close()">Cancel</button><button class="btn primary" onclick="BuildScoutMarketplace.submitBid(' + JSON.stringify(id) + ')">Save bid</button></div><div id="bid-status" class="muted" style="margin-top:10px;"></div></div></div>');
   }
+  async function viewMyBids(){
+    const u=await uid(),client=B().getClient()||B().init();
+    const r=await client.from("project_bids").select("id,project_id,trade,status,bid_amount,proposal_text,submitted_at,created_at,projects(name,city,project_type)").eq("bidder_user_id",u).order("created_at",{ascending:false}).limit(100);
+    if(r.error){alert(r.error.message);return;}
+    document.getElementById("bs-market-modal")?.remove();
+    const rows=(r.data||[]).map(b=>'<div class="panel" style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;gap:10px;"><div><b>'+esc(b.projects?.name||"Project")+'</b><div class="muted">'+esc([b.projects?.city,b.trade].filter(Boolean).join(" · "))+'</div></div><strong>'+esc(b.status||"draft").toUpperCase()+'</strong></div><div style="margin-top:8px;font-size:18px;font-weight:900;">
+    const u=await uid(),client=B().getClient()||B().init();
+    const trade=document.getElementById("bid-trade")?.value, amount=Number(document.getElementById("bid-amount")?.value||0), proposal=document.getElementById("bid-proposal")?.value?.trim();
+    if(!trade){alert("Choose a trade package.");return;}
+    if(!amount || amount<0){alert("Enter a bid amount.");return;}
+    const r=await client.from("project_bids").insert({project_id:id,bidder_user_id:u,trade,bid_amount:amount,proposal_text:proposal||null,status:"draft"});
+    if(r.error){document.getElementById("bid-status").textContent=r.error.message;return;}
+    alert("Bid saved. Next we'll add proposal uploads and final submission.");
+    close();
+  }
+  window.BuildScoutMarketplace={openPost,create,close,render,filter,openProject,requestBid,submitBid,viewMyBids};
+})();+Number(b.bid_amount||0).toLocaleString()+'</div><div class="muted" style="margin-top:5px;">'+esc(b.proposal_text||"No proposal notes yet.")+'</div></div>').join("");
+    document.body.insertAdjacentHTML("beforeend",'<div class="modal" id="bs-market-modal"><div class="modalbox" style="width:min(850px,100%);"><button class="close" onclick="BuildScoutMarketplace.close()">×</button><div class="bs-eyebrow">MY BIDS</div><h2>Bid workspace</h2><p class="muted">Track the opportunities you've bid on and their current status.</p><div style="margin-top:18px;">'+(rows||'<div class="panel">You have not created any bids yet.</div>')+'</div></div></div>');
+  }
+
   async function submitBid(id){
     const u=await uid(),client=B().getClient()||B().init();
     const trade=document.getElementById("bid-trade")?.value, amount=Number(document.getElementById("bid-amount")?.value||0), proposal=document.getElementById("bid-proposal")?.value?.trim();
