@@ -597,6 +597,7 @@ function shell(){
         ${navBtn("saved",`★ Saved (${saved.length})`)}
         ${navBtn("pipeline","▤ Pipeline")}
         ${navBtn("alerts","◇ Alerts")}
+        ${navBtn("marketplace","⚒ Marketplace")}
       </div>
       <div class="side-label">Find projects</div>
       <div class="quick">
@@ -772,6 +773,7 @@ function renderPage(){
         <div><div class="bs-eyebrow">WHY BUILDSCOUT</div><h2>From scattered construction data to a clear next move.</h2></div>
         <div class="bs-steps"><span><b>1</b> Discover</span><span><b>2</b> Verify</span><span><b>3</b> View plans & team</span><span><b>4</b> Contact</span><span><b>5</b> Track & win</span></div>
       </section>`;
+  } else if(page==="marketplace"){ BuildScoutMarketplace.render(main); return;
   } else if(page==="dashboard"){
     const ps = filtered().sort((a, b) => (b.score || 0) - (a.score || 0));
     main.innerHTML=`<div class="pagehead"><div><h1>Project Map</h1><div class="muted">Explore construction opportunities and open a project to see the intelligence behind it.</div></div></div>
