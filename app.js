@@ -347,7 +347,7 @@ async function startBuildScout(session = null) {
     BuildScoutBackend.getPipeline(userId)
   ]);
 
-  saved = savedRows.map(row => row.project_id);
+  saved = savedRows.map(row => String(row.project_id));
 
   pipeline = {};
   pipelineDetails = {};
@@ -438,7 +438,7 @@ async function loadSupabaseProjects() {
     });
 
     const supabaseProjects = rows
-  .filter(isDisplayLead)
+  .filter(p => isDisplayLead(p) || saved.includes(String(p.id)))
   .map(p => ({
       id: p.id,
       name: p.name,
@@ -788,7 +788,7 @@ function renderPage(){
   } else if(page==="projects"){
     main.innerHTML=`<div class="pagehead"><div><h1>Find Projects</h1><div class="muted">Discover opportunities, project teams, plans and the signals that make a project worth pursuing.</div></div></div>${filterBar()}<div class="grid">${filtered().map(projectCard).join("")}</div>`;
   } else if(page==="saved"){
-    const ps=projects.filter(p=>saved.includes(p.id));
+    const ps=projects.filter(p=>saved.includes(String(p.id)));
     main.innerHTML=`<div class="pagehead"><div><h1>My Projects</h1><div class="muted">Your active prospect list.</div></div></div><div class="grid">${ps.map(projectCard).join("")||"<div class='panel muted'>No saved projects yet.</div>"}</div>`;
   } else if(page==="pipeline"){renderPipeline(main)}
   else if(page==="alerts"){renderAlerts(main)}
@@ -827,10 +827,10 @@ function initMap(ps) {
     return (
       Number.isFinite(lat) &&
       Number.isFinite(lon) &&
-      lat >= 32.0 &&
-      lat <= 33.5 &&
-      lon >= -98.0 &&
-      lon <= -96.0
+      lat >= -90 &&
+      lat <= 90 &&
+      lon >= -180 &&
+      lon <= 180
     );
   })
  .forEach(p => {
@@ -1245,14 +1245,17 @@ async function toggleSave(id) {
       return;
     }
 
-    if (saved.includes(id)) {
-      await BuildScoutBackend.unsaveProject(userId, id);
-      saved = saved.filter(x => x !== id);
+    const projectId = String(id);
+
+    if (saved.includes(projectId)) {
+      await BuildScoutBackend.unsaveProject(userId, projectId);
+      saved = saved.filter(x => String(x) !== projectId);
     } else {
-      await BuildScoutBackend.saveProject(userId, id);
-      saved = [...saved, id];
+      await BuildScoutBackend.saveProject(userId, projectId);
+      saved = [...saved.filter(x => String(x) !== projectId), projectId];
     }
 
+    document.getElementById("modal")?.remove();
     shell();
     renderPage();
   } catch (error) {
