@@ -56,5 +56,5 @@
     alert("Bid saved. Next we'll add proposal uploads and final submission.");
     close();
   }
-  window.BuildScoutMarketplace={openPost,create,close,render,filter,openProject,requestBid};
+  window.BuildScoutMarketplace={openPost,create,close,render,filter,openProject,requestBid,submitBid};
 })();
