@@ -96,7 +96,7 @@
       const client = getSupabaseClient();
       const { error: uploadError } = await client.storage.from(STORAGE_BUCKET).upload(storagePath, file, { cacheControl: "3600", upsert: false, contentType: file.type || undefined });
       if (uploadError) throw uploadError;
-      const { error: metadataError } = await client.from("project_documents").insert({ project_id: state.projectId, title, document_type: documentType, file_name: file.name, file_url: storagePath, is_public: true });
+      const { error: metadataError } = await client.from("project_documents").insert({ project_id: state.projectId, title, document_type: documentType, file_name: file.name, file_url: storagePath, is_public: false, uploader_user_id: (await client.auth.getUser()).data.user?.id || null, access_scope: "private" });
       if (metadataError) throw new Error(`File uploaded, but the document record could not be created: ${metadataError.message}`);
       if (fileInput) fileInput.value = ""; if (titleInput) titleInput.value = ""; if (status) status.textContent = "Upload complete."; await refreshDocuments();
     } catch (error) { console.error("Project document upload failed:", error); if (status) status.textContent = "Upload failed."; alert(`Unable to upload project document: ${error.message || error}`); }
