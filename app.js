@@ -464,6 +464,16 @@ document_count: Number(documentCounts[String(p.id)] || 0)
 
     projects = [...supabaseProjects];
 
+    const availableProjectIds = new Set(rows.map(p => String(p.id)));
+    const staleSavedIds = saved.filter(id => !availableProjectIds.has(String(id)));
+    if (staleSavedIds.length) {
+      await Promise.all(staleSavedIds.map(id =>
+        BuildScoutBackend.unsaveProject(currentSession.user.id, String(id))
+          .catch(error => console.warn("Could not clean stale saved project:", id, error))
+      ));
+      saved = saved.filter(id => availableProjectIds.has(String(id)));
+    }
+
     shell();
     renderPage();
 
@@ -690,32 +700,42 @@ function projectCard(p){
     <div class="opportunity-facts"><div><small>Value</small><b>${money(p.value)}</b></div><div><small>Project team</small><b>${q.team?"Identified":"Research needed"}</b></div><div><small>Plans</small><b>${q.plans?`${p.document_count} available`:"Not found yet"}</b></div></div>
     <div class="opportunity-next"><small>BUILDSCOUT NEXT MOVE</small><b>${esc(nextMove(p))}</b></div>
     <div class="opportunity-source"><span class="confidence-pill ${q.known>=3?"good":q.known===2?"mid":"low"}">${q.label}</span><span>${esc(p.source||"Unknown source")}${p.permit_number?` · Permit ${esc(p.permit_number)}`:""}</span></div>
-    <div class="opportunity-actions"><button class="btn primary" onclick="viewProject('${p.id}')">Open project</button><button class="btn secondary" onclick="BuildScoutIntelligence.open('${p.id}',${JSON.stringify(projectIdentity(p))})">Intelligence</button>${q.plans?`<button class="btn secondary" onclick="BuildScoutProjectDocuments.open('${p.id}',${JSON.stringify(p.name||"Project")})">View plans</button>`:""}<button class="btn secondary" onclick="toggleSave('${p.id}')">${saved.includes(p.id)?"Saved":"Save"}</button></div>
+    <div class="opportunity-actions"><button class="btn primary" onclick="viewProject('${p.id}')">Open project</button><button class="btn secondary" onclick="openProjectIntelligence('${p.id}',${JSON.stringify(projectIdentity(p))})">Intelligence</button>${q.plans?`<button class="btn secondary" onclick="BuildScoutProjectDocuments.open('${p.id}',${JSON.stringify(p.name||"Project")})">View plans</button>`:""}<button class="btn secondary" onclick="toggleSave('${p.id}')">${saved.includes(p.id)?"Saved":"Save"}</button></div>
   </article>`;
 }
 function focusProjectOnMap(id){
   const project = projects.find(p => String(p.id) === String(id));
-
-  if (!project || !map) return;
-
+  if (!project || !map || !markerLayer) return false;
   const lat = Number(project.lat);
   const lon = Number(project.lon);
-
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-
-  map.setView([lat, lon], Math.max(map.getZoom(), 15), {
-    animate: true
-  });
-
-  const marker = projectMarkers[id];
-
-  if (marker) {
-    marker.openPopup();
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return false;
+  let marker = projectMarkers[project.id];
+  if (!marker) {
+    marker = L.marker([lat, lon]).addTo(markerLayer);
+    projectMarkers[project.id] = marker;
+    marker.bindPopup("<b>" + esc(project.name || "Project") + "</b><br>" + esc(project.city || "") + "<br>" + money(project.value));
   }
-
-  highlightProjectCard(id);
+  map.setView([lat, lon], 15, { animate: true });
+  marker.openPopup();
+  highlightProjectCard(project.id);
+  return true;
 }
-
+function showProjectOnMap(id){
+  const project = projects.find(p => String(p.id) === String(id));
+  if (!project) return;
+  document.getElementById("modal")?.remove();
+  query = ""; selectedType = "All"; selectedStage = "All"; minValue = 0;
+  page = "dashboard";
+  shell();
+  renderPage();
+  let attempts = 0;
+  const tryFocus = () => {
+    attempts += 1;
+    if (focusProjectOnMap(id)) return;
+    if (attempts < 20) setTimeout(tryFocus, 100);
+  };
+  setTimeout(tryFocus, 100);
+}
 function highlightProjectCard(id){
   document.querySelectorAll(".project-card").forEach(card => {
     card.style.outline = "";
@@ -877,12 +897,24 @@ function initMap(ps) {
   }
 }, 250);
 }
+function openProjectIntelligence(projectId, projectName){
+  if (window.BuildScoutIntelligence && typeof window.BuildScoutIntelligence.open === "function") {
+    return window.BuildScoutIntelligence.open(projectId, projectName);
+  }
+  alert("Project Intelligence is still loading. Please refresh the page and try again.");
+}
+function openScopeBuilder(projectId, projectName){
+  if (window.BuildScoutScope && typeof window.BuildScoutScope.open === "function") {
+    return window.BuildScoutScope.open(projectId, projectName);
+  }
+  alert("Scope Builder is still loading. Please refresh the page and try again.");
+}
 function viewProject(id){
   const p = projects.find(x => String(x.id) === String(id));
   if (!p) return;
 
   const score = Number(p.score || 70);
-const isSaved = saved.includes(p.id);
+const isSaved = saved.includes(String(p.id));
 
 const location = [
   p.street_address,
@@ -1206,14 +1238,14 @@ if (score >= 90) {
 
           <button
             class="btn secondary"
-            onclick="BuildScoutScope.open('${p.id}', ${JSON.stringify(p.name || "Project")})"
+            onclick="openScopeBuilder('${p.id}', ${JSON.stringify(p.name || "Project")})"
           >
             Scope Builder
           </button>
 
           <button
             class="btn secondary"
-            onclick="BuildScoutIntelligence.open('${p.id}', ${JSON.stringify(projectIdentity(p))})"
+            onclick="openProjectIntelligence('${p.id}', ${JSON.stringify(projectIdentity(p))})"
           >
             Project Intelligence
           </button>
@@ -1223,7 +1255,7 @@ if (score >= 90) {
               ? `
                 <button
                   class="btn secondary"
-                  onclick="document.getElementById('modal')?.remove();go('dashboard');setTimeout(()=>focusProjectOnMap('${p.id}'),400)"
+                  onclick="showProjectOnMap('${p.id}')"
                 >
                   Show on map
                 </button>
