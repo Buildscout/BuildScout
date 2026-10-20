@@ -35,14 +35,26 @@ const TEMPLATES={
 async function open(projectId,projectName){
  const u=await uid();if(!u){alert("Please sign in again.");return;}
  const c=B().getClient()||B().init();
- const [p,pk]=await Promise.all([
-  c.from("project_scope_packages").select("*").eq("project_id",projectId).order("sort_order"),
-  c.from("project_trade_packages").select("trade,scope_summary").eq("project_id",projectId).order("trade")
- ]);
- if(p.error||pk.error){alert((p.error||pk.error).message);return;}
  close();
- const packages=p.data||[], trades=pk.data||[];
- document.body.insertAdjacentHTML("beforeend",'<div class="modal" id="bs-scope-modal"><div class="modalbox bs-scope-modal"><button class="close" onclick="BuildScoutScope.close()">×</button><div class="bs-eyebrow">BUILDSCOUT SCOPE BUILDER</div><h2>'+esc(projectName||"Project")+'</h2><p class="muted">Turn broad bid packages into precise, reviewable scopes. Nothing is treated as verified until the project team approves it.</p><div class="bs-scope-toolbar"><button class="btn primary" onclick="BuildScoutScope.recommend('+JSON.stringify(projectId)+')">Build recommended scopes</button><button class="btn secondary" onclick="BuildScoutScope.refresh('+JSON.stringify(projectId)+','+JSON.stringify(projectName||"Project")+')">Refresh</button></div><div id="bs-scope-status" class="muted"></div><div id="bs-scope-list">'+renderPackages(packages)+'</div></div></div>');
+ document.body.insertAdjacentHTML("beforeend",'<div class="modal" id="bs-scope-modal"><div class="modalbox bs-scope-modal"><button class="close" onclick="BuildScoutScope.close()">×</button><div class="bs-eyebrow">BUILDSCOUT SCOPE BUILDER</div><h2>'+esc(projectName||"Project")+'</h2><p class="muted">Turn broad bid packages into precise, reviewable scopes. Nothing is treated as verified until the project team approves it.</p><div class="bs-scope-toolbar"><button class="btn primary" onclick="BuildScoutScope.recommend('+JSON.stringify(projectId)+')">Build recommended scopes</button><button class="btn secondary" onclick="BuildScoutScope.refresh('+JSON.stringify(projectId)+','+JSON.stringify(projectName||"Project")+')">Refresh</button></div><div id="bs-scope-status" class="muted">Loading existing scopes…</div><div id="bs-scope-list"></div></div></div>');
+ try{
+  const [p,pk]=await Promise.all([
+   c.from("project_scope_packages").select("*").eq("project_id",projectId).order("sort_order"),
+   c.from("project_trade_packages").select("trade,scope_summary").eq("project_id",projectId).order("trade")
+  ]);
+  if(p.error||pk.error){
+   const message=(p.error||pk.error).message;
+   const status=document.getElementById("bs-scope-status");
+   if(status)status.textContent="Scope data is not available yet. Create trade packages first, then build recommended scopes.";
+   console.error("Scope Builder data load failed:",message);
+   return;
+  }
+  const status=document.getElementById("bs-scope-status");if(status)status.textContent="";
+  const list=document.getElementById("bs-scope-list");if(list)list.innerHTML=renderPackages(p.data||[]);
+ }catch(error){
+  console.error("Scope Builder failed to load:",error);
+  const status=document.getElementById("bs-scope-status");if(status)status.textContent="Unable to load scope data. Please try again.";
+ }
 }
 function renderPackages(a){
  if(!a.length)return '<div class="panel"><h3>No scope packages yet</h3><p class="muted">BuildScout can expand the project\'s trade packages into reviewable scope packages.</p></div>';
