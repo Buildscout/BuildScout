@@ -1,0 +1,41 @@
+// BuildScout Marketplace V1
+(function(){
+  const esc=v=>String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+  const B=()=>window.BuildScoutBackend;
+  async function uid(){return (await B().getSession())?.user?.id||null;}
+  async function openPost(){
+    const u=await uid(); if(!u){alert("Please sign in again.");return;}
+    document.getElementById("bs-market-modal")?.remove();
+    document.body.insertAdjacentHTML("beforeend",'<div class="modal" id="bs-market-modal"><div class="modalbox" style="width:min(900px,100%);"><button class="close" onclick="BuildScoutMarketplace.close()">×</button><div class="bs-eyebrow">POST A PROJECT</div><h2>Put your project in front of the right trades</h2><p class="muted">Create the opportunity first. Plans, specifications, trade invitations and bidding can be added as the project develops.</p><div class="bs-market-form"><input id="m-name" placeholder="Project name *"><input id="m-city" placeholder="City"><input id="m-address" placeholder="Project address"><select id="m-type"><option>Commercial</option><option>Multifamily</option><option>Residential</option><option>Industrial</option><option>Mixed-use</option><option>Other</option></select><input id="m-value" type="number" placeholder="Estimated project value"><select id="m-stage"><option>Planning</option><option>Pre-construction</option><option>Bidding</option><option>Active</option></select><input id="m-due" type="datetime-local"><textarea id="m-description" placeholder="Describe the project, scope, schedule, and anything bidders should know."></textarea></div><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;"><button class="btn secondary" onclick="BuildScoutMarketplace.close()">Cancel</button><button class="btn primary" onclick="BuildScoutMarketplace.create()">Create project</button></div><div id="m-status" class="muted" style="margin-top:10px;"></div></div></div>');
+  }
+  async function create(){
+    const u=await uid(), v=id=>document.getElementById(id)?.value?.trim();
+    if(!v("m-name")){alert("Project name is required.");return;}
+    const client=B().getClient()||B().init();
+    const result=await client.from("projects").insert({name:v("m-name"),city:v("m-city"),street_address:v("m-address"),project_type:v("m-type"),estimated_value:Number(v("m-value")||0)||null,stage:v("m-stage"),description:v("m-description")||null}).select("id").single();
+    if(result.error){document.getElementById("m-status").textContent=result.error.message;return;}
+    const ws=await client.from("project_workspaces").insert({project_id:result.data.id,owner_user_id:u,visibility:"public",posting_status:"open",bid_due_at:v("m-due")?new Date(v("m-due")).toISOString():null,posted_at:new Date().toISOString()});
+    if(ws.error){document.getElementById("m-status").textContent=ws.error.message;return;}
+    close(); if(typeof loadProjects==="function") await loadProjects(); if(typeof go==="function") go("marketplace");
+  }
+  function close(){document.getElementById("bs-market-modal")?.remove();}
+  async function render(main){
+    const u=await uid(); if(!u)return; const client=B().getClient()||B().init();
+    const result=await client.from("project_workspaces").select("project_id,posting_status,bid_due_at,projects(id,name,city,street_address,project_type,estimated_value,stage,description)").eq("posting_status","open").order("bid_due_at",{ascending:true,nullsFirst:false}).limit(100);
+    if(result.error){main.innerHTML='<div class="panel">Marketplace could not load: '+esc(result.error.message)+'</div>';return;}
+    const items=(result.data||[]).filter(x=>x.projects).map(x=>x.projects); window._bsMarketItems=items;
+    main.innerHTML='<div class="pagehead"><div><div class="bs-eyebrow">BUILDSCOUT MARKETPLACE</div><h1>Find work. Post work. Win work.</h1><div class="muted">Projects with plans, bidding, project intelligence and AI in one place.</div></div><button class="btn primary" onclick="BuildScoutMarketplace.openPost()">+ Post a Project</button></div><div class="bs-market-hero"><div><b>Construction shared opportunity layer</b><p>Owners and GCs can post projects and invite trades. Contractors can discover opportunities and submit bids. Suppliers, manufacturers, architects and developers can use the same project intelligence.</p></div><div class="bs-market-stats"><strong>'+items.length+'</strong><span>open projects</span></div></div><div class="filterbar"><input id="market-q" placeholder="Search open projects..." oninput="BuildScoutMarketplace.filter()"><select id="market-type" onchange="BuildScoutMarketplace.filter()"><option>All project types</option><option>Multifamily</option><option>Commercial</option><option>Residential</option><option>Industrial</option></select></div><div id="market-list" class="grid">'+cards(items)+'</div>';
+  }
+  function cards(items){
+    if(!items.length)return '<div class="panel">No open marketplace projects match your search yet.</div>';
+    return items.map(p=>'<article class="panel bs-market-card"><div class="tag">'+esc(p.project_type||"Construction")+'</div><h3>'+esc(p.name)+'</h3><div class="muted">'+esc([p.city,p.street_address].filter(Boolean).join(" · "))+'</div><div class="bs-market-value">'+(p.estimated_value?"$"+Number(p.estimated_value).toLocaleString():"Value not disclosed")+'</div><div class="muted">'+esc(p.stage||"Project")+' · Open for bidding</div><div style="margin-top:14px;display:flex;gap:8px;"><button class="btn secondary" onclick="BuildScoutMarketplace.openProject(\''+p.id+'\')">View project</button><button class="btn primary" onclick="BuildScoutMarketplace.openProject(\''+p.id+'\')">View opportunity</button></div></article>').join("");
+  }
+  function filter(){const q=(document.getElementById("market-q")?.value||"").toLowerCase(),t=document.getElementById("market-type")?.value||"";document.getElementById("market-list").innerHTML=cards((window._bsMarketItems||[]).filter(p=>(!q||(p.name+" "+p.city+" "+p.street_address).toLowerCase().includes(q))&&(!t||t==="All project types"||p.project_type===t)));}
+  async function openProject(id){
+    const client=B().getClient()||B().init(),r=await client.from("projects").select("*").eq("id",id).single(); if(r.error){alert(r.error.message);return;} const p=r.data;
+    document.getElementById("bs-market-modal")?.remove();
+    document.body.insertAdjacentHTML("beforeend",'<div class="modal" id="bs-market-modal"><div class="modalbox"><button class="close" onclick="BuildScoutMarketplace.close()">×</button><div class="bs-eyebrow">MARKETPLACE PROJECT</div><h2>'+esc(p.name)+'</h2><p class="muted">'+esc([p.street_address,p.city,p.project_type].filter(Boolean).join(" · "))+'</p><div class="bs-project-actions"><button class="btn primary" onclick="BuildScoutProjectDocuments.open(\''+p.id+'\',\''+esc(p.name||"Project")+'\')">Plans & Specs</button><button class="btn secondary" onclick="BuildScoutMarketplace.requestBid(\''+p.id+'\')">Express interest / Bid</button></div><div class="grid" style="margin-top:16px;"><div class="panel"><small class="muted">Project value</small><h3>'+(p.estimated_value?"$"+Number(p.estimated_value).toLocaleString():"Not disclosed")+'</h3></div><div class="panel"><small class="muted">Stage</small><h3>'+esc(p.stage||"Not specified")+'</h3></div></div><div class="panel" style="margin-top:14px;"><h3>Project description</h3><p>'+esc(p.description||"The project owner has not added a description yet.")+'</p></div></div></div>');
+  }
+  async function requestBid(id){const u=await uid(),client=B().getClient()||B().init(),trade=prompt("What trade are you bidding?");if(!trade)return;const r=await client.from("project_bids").insert({project_id:id,bidder_user_id:u,trade,status:"draft"});if(r.error)alert(r.error.message);else alert("You're connected to this opportunity. Your bid workspace is next.");}
+  window.BuildScoutMarketplace={openPost,create,close,render,filter,openProject,requestBid};
+})();
