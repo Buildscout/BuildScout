@@ -703,38 +703,86 @@ function projectCard(p){
     <div class="opportunity-actions"><button class="btn primary" onclick="viewProject('${p.id}')">Open project</button><button class="btn secondary" onclick="openProjectIntelligence('${p.id}',${JSON.stringify(projectIdentity(p))})">Intelligence</button>${q.plans?`<button class="btn secondary" onclick="BuildScoutProjectDocuments.open('${p.id}',${JSON.stringify(p.name||"Project")})">View plans</button>`:""}<button class="btn secondary" onclick="toggleSave('${p.id}')">${saved.includes(p.id)?"Saved":"Save"}</button></div>
   </article>`;
 }
-function focusProjectOnMap(id){
+async function focusProjectOnMap(id){
   const project = projects.find(p => String(p.id) === String(id));
   if (!project || !map || !markerLayer) return false;
-  const lat = Number(project.lat);
-  const lon = Number(project.lon);
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return false;
-  let marker = projectMarkers[project.id];
-  if (!marker) {
-    marker = L.marker([lat, lon]).addTo(markerLayer);
-    projectMarkers[project.id] = marker;
-    marker.bindPopup("<b>" + esc(project.name || "Project") + "</b><br>" + esc(project.city || "") + "<br>" + money(project.value));
+
+  let lat = Number(project.lat);
+  let lon = Number(project.lon);
+
+  const city = String(project.city || "").toLowerCase();
+  const address = [project.street_address, project.city, project.zip_code].filter(Boolean).join(", ");
+  const austinCoordsSuspect =
+    city.includes("austin") &&
+    (!Number.isFinite(lat) || !Number.isFinite(lon) ||
+      lat < 29.6 || lat > 30.7 || lon < -98.4 || lon > -96.9);
+
+  if ((!Number.isFinite(lat) || !Number.isFinite(lon) || austinCoordsSuspect) && address) {
+    try {
+      const cacheKey = "bs_geocode_" + address.toLowerCase();
+      const cached = JSON.parse(localStorage.getItem(cacheKey) || "null");
+      if (cached?.lat && cached?.lon) {
+        lat = Number(cached.lat);
+        lon = Number(cached.lon);
+      } else {
+        const url = "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=" + encodeURIComponent(address);
+        const response = await fetch(url, { headers: { Accept: "application/json" } });
+        const results = await response.json();
+        if (results?.[0]) {
+          lat = Number(results[0].lat);
+          lon = Number(results[0].lon);
+          localStorage.setItem(cacheKey, JSON.stringify({lat, lon, address}));
+        }
+      }
+    } catch (error) {
+      console.warn("Address geocoding fallback failed:", error);
+    }
   }
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return false;
+
+  project.lat = lat;
+  project.lon = lon;
+
+  const oldMarker = projectMarkers[project.id];
+  if (oldMarker) oldMarker.remove();
+
+  const marker = L.marker([lat, lon]).addTo(markerLayer);
+  projectMarkers[project.id] = marker;
+  marker.bindPopup(
+    "<b>" + esc(project.name || "Project") + "</b><br>" +
+    esc(project.city || "") + "<br>" +
+    money(project.value) + " • " + (project.score || 0) + "/100"
+  );
+
   map.setView([lat, lon], 15, { animate: true });
   marker.openPopup();
   highlightProjectCard(project.id);
   return true;
 }
-function showProjectOnMap(id){
+async function showProjectOnMap(id){
   const project = projects.find(p => String(p.id) === String(id));
   if (!project) return;
+
   document.getElementById("modal")?.remove();
-  query = ""; selectedType = "All"; selectedStage = "All"; minValue = 0;
+  query = "";
+  selectedType = "All";
+  selectedStage = "All";
+  minValue = 0;
   page = "dashboard";
   shell();
   renderPage();
+
   let attempts = 0;
-  const tryFocus = () => {
+  const tryFocus = async () => {
     attempts += 1;
-    if (focusProjectOnMap(id)) return;
-    if (attempts < 20) setTimeout(tryFocus, 100);
+    if (await focusProjectOnMap(id)) return;
+    if (attempts < 25) setTimeout(tryFocus, 150);
   };
-  setTimeout(tryFocus, 100);
+
+  // initMap performs its own fitBounds at ~250ms; run after it so it cannot
+  // move the selected project back to the world view.
+  setTimeout(tryFocus, 450);
 }
 function highlightProjectCard(id){
   document.querySelectorAll(".project-card").forEach(card => {
