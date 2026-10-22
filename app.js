@@ -5,6 +5,8 @@ let imported=JSON.parse(localStorage.getItem("bs_imported")||"[]");
 // Do not hydrate it from localStorage: browser storage is shared across sign-ins
 // on the same device and can briefly show stale data from another session.
 let saved = [];
+let projects = [];
+let projectsLoading = false;
 let pipeline = {};
 let pipelineDetails = {};
 
@@ -368,6 +370,7 @@ async function startBuildScout(session = null) {
   pipelineDetails = {};
   saved = [];
   projects = [];
+  projectsLoading = true;
 
   shell();
   renderPage();
@@ -503,16 +506,10 @@ document_count: Number(documentCounts[String(p.id)] || 0)
     }));
 
     projects = [...supabaseProjects];
+    projectsLoading = false;
 
-    const availableProjectIds = new Set(rows.map(p => String(p.id)));
-    const staleSavedIds = saved.filter(id => !availableProjectIds.has(String(id)));
-    if (staleSavedIds.length) {
-      await Promise.all(staleSavedIds.map(id =>
-        BuildScoutBackend.unsaveProject(currentSession.user.id, String(id))
-          .catch(error => console.warn("Could not clean stale saved project:", id, error))
-      ));
-      saved = saved.filter(id => availableProjectIds.has(String(id)));
-    }
+
+    // Do not delete saved records based on a partial project page.
 
     shell();
     renderPage();
@@ -525,6 +522,7 @@ document_count: Number(documentCounts[String(p.id)] || 0)
     // project query failed. Show the real database error so it can be
     // diagnosed instead of making valid data look like it disappeared.
     projects = [];
+    projectsLoading = false;
     shell();
     const main = document.getElementById("main");
     if (main) {
@@ -942,6 +940,10 @@ function renderPage(){
       </section>`;
   } else if(page==="marketplace"){ BuildScoutMarketplace.render(main); return;
   } else if(page==="dashboard"){
+    if (projectsLoading && projects.length === 0) {
+      main.innerHTML=`<div class="pagehead"><div><h1>Project Map</h1><div class="muted">Loading verified construction projects…</div></div></div><div class="panel" style="padding:40px;text-align:center;"><h2>Loading projects…</h2><p class="muted">BuildScout is loading the project dataset.</p></div>`;
+      return;
+    }
     const ps = filtered().sort((a, b) => (b.score || 0) - (a.score || 0));
     main.innerHTML=`<div class="pagehead"><div><h1>Project Map</h1><div class="muted">Explore construction opportunities and open a project to see the intelligence behind it.</div></div></div>
       <div class="statline">
@@ -953,6 +955,10 @@ function renderPage(){
       <div class="map-wrap"><div id="map"></div><div class="listpanel">${ps.map(projectCard).join("")||"<div class='muted'>No projects match.</div>"}</div></div>`;
     setTimeout(()=>initMap(ps),0);
   } else if(page==="projects"){
+    if (projectsLoading && projects.length === 0) {
+      main.innerHTML=`<div class="pagehead"><div><h1>Find Projects</h1><div class="muted">Loading verified construction projects…</div></div></div><div class="panel" style="padding:40px;text-align:center;"><h2>Loading projects…</h2><p class="muted">BuildScout is loading the project dataset.</p></div>`;
+      return;
+    }
     main.innerHTML=`<div class="pagehead"><div><h1>Find Projects</h1><div class="muted">Discover opportunities, project teams, plans and the signals that make a project worth pursuing.</div></div></div>${filterBar()}<div class="grid">${filtered().map(projectCard).join("")}</div>`;
   } else if(page==="saved"){
     const ps=projects.filter(p=>saved.includes(String(p.id)));
