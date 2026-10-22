@@ -828,14 +828,16 @@ async function showProjectOnMap(id){
   minValue = 0;
   page = "dashboard";
   shell();
-  renderPage();
 
-  // Render only the selected project when coming from a project detail.
-  // The normal map view remains available from the dashboard with all projects.
+  // Set the focus before renderPage() initializes Leaflet so the selected
+  // project is the only marker and the map fits directly to it.
   const mapHost = document.getElementById("map");
   if (mapHost) {
     mapHost.dataset.focusProjectId = String(id);
   }
+
+  // The normal Project Map navigation remains the all-project map.
+  renderPage();
 
   let attempts = 0;
   const tryFocus = async () => {
