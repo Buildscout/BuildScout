@@ -28,37 +28,47 @@ window.BuildScoutBackend = (() => {
   async function getSession(){if(!client)init();const{data,error}=await client.auth.getSession();if(error)throw error;return data.session;}
   async function getProjects(accessToken=null){
     if(!client)init();
-    // Prefer the session token already returned by sign-in. This avoids a
-    // transient Supabase getSession() race immediately after authentication.
     const session=accessToken?null:await getSession();
     const token=accessToken||session?.access_token;
     if(!token)throw new Error("No authenticated session token is available.");
 
-    const rows=[];
     const pageSize=1000;
-
-    for(let offset=0;;offset+=pageSize){
+    const fetchPage=async(offset)=>{
       const response=await fetch(`/api/projects?offset=${offset}&limit=${pageSize}`,{
         headers:{Authorization:`Bearer ${token}`}
       });
       let payload=null;
       try{payload=await response.json();}catch(_){}
-
       if(!response.ok){
         throw new Error(payload?.message||payload?.error||`Projects API returned HTTP ${response.status}.`);
       }
+      return payload;
+    };
 
-      const batch=Array.isArray(payload?.data)?payload.data:[];
-      rows.push(...batch);
+    // Load the first page first so we know the dataset size, then fetch the
+    // remaining pages concurrently. The old implementation fetched 33 pages
+    // serially, which made sign-in appear frozen on a 32k+ project dataset.
+    const first=await fetchPage(0);
+    const total=Number(first?.total||0);
+    const rows=Array.isArray(first?.data)?[...first.data]:[];
 
-      if(offset===0 && Number(payload?.total||0)>0 && batch.length===0){
-        throw new Error(`Projects API reports ${payload.total} projects but returned 0 rows.`);
+    if(total>rows.length){
+      const offsets=[];
+      for(let offset=pageSize;offset<total;offset+=pageSize) offsets.push(offset);
+      const batches=[];
+      for(let i=0;i<offsets.length;i+=6){
+        batches.push(await Promise.all(offsets.slice(i,i+6).map(fetchPage)));
       }
-
-      if(batch.length<pageSize)break;
+      batches.flat().forEach(payload=>{
+        if(Array.isArray(payload?.data)) rows.push(...payload.data);
+      });
     }
 
-    console.log("BuildScout server project query:",{loaded:rows.length});
+    if(total>0 && rows.length===0){
+      throw new Error(`Projects API reports ${total} projects but returned 0 rows.`);
+    }
+
+    console.log("BuildScout server project query:",{loaded:rows.length,total});
     return rows;
   }
   async function getProjectDocuments(projectId){if(!client)init();const{data,error}=await client.from("project_documents").select("*").eq("project_id",projectId).eq("is_public",true).order("document_type",{ascending:true}).order("sheet_number",{ascending:true});if(error)throw error;return data||[];}
