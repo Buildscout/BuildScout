@@ -26,7 +26,44 @@ window.BuildScoutBackend = (() => {
   }
   async function signOut(){if(!client)return;const{error}=await client.auth.signOut();if(error)throw error;}
   async function getSession(){if(!client)init();const{data,error}=await client.auth.getSession();if(error)throw error;return data.session;}
-  async function getProjects(){if(!client)init();const rows=[];const pageSize=1000;for(let from=0;;from+=pageSize){const{data,error}=await client.from("projects").select("*").order("created_at",{ascending:false}).range(from,from+pageSize-1);if(error)throw error;rows.push(...(data||[]));if(!data||data.length<pageSize)break;}return rows;}
+  async function getProjects(){
+    if(!client)init();
+    const rows=[];
+    const pageSize=1000;
+
+    // Ask Supabase for the authoritative row count as well as the page.
+    // This makes a large table deterministic instead of relying on the
+    // client/default row limit.
+    const first=await client
+      .from("projects")
+      .select("*",{count:"exact"})
+      .order("created_at",{ascending:false})
+      .range(0,pageSize-1);
+
+    if(first.error)throw first.error;
+
+    const total=Number(first.count||0);
+    rows.push(...(first.data||[]));
+
+    for(let from=pageSize;from<total;from+=pageSize){
+      const{data,error}=await client
+        .from("projects")
+        .select("*")
+        .order("created_at",{ascending:false})
+        .range(from,Math.min(from+pageSize-1,total-1));
+      if(error)throw error;
+      rows.push(...(data||[]));
+    }
+
+    // If the count says data exists but the first page is empty, surface
+    // that discrepancy instead of silently showing an empty workspace.
+    if(total>0 && rows.length===0){
+      throw new Error("Supabase reports "+total+" projects, but the authenticated project query returned 0 rows.");
+    }
+
+    console.log("BuildScout project query:",{total,loaded:rows.length});
+    return rows;
+  }
   async function getProjectDocuments(projectId){if(!client)init();const{data,error}=await client.from("project_documents").select("*").eq("project_id",projectId).eq("is_public",true).order("document_type",{ascending:true}).order("sheet_number",{ascending:true});if(error)throw error;return data||[];}
   async function getProjectDocumentCounts(){if(!client)init();const counts={};let from=0;const size=1000;while(true){const{data,error}=await client.from("project_documents").select("project_id").eq("is_public",true).range(from,from+size-1);if(error)throw error;(data||[]).forEach(row=>{const key=String(row.project_id);counts[key]=(counts[key]||0)+1;});if(!data||data.length<size)break;from+=size;}return counts;}
   async function getProjectIntelligence(projectId){if(!client)init();const [sourcesResult,companiesResult,contactsResult]=await Promise.all([client.from("project_sources").select("*").eq("project_id",projectId).order("verified_at",{ascending:false}),client.from("project_companies").select("*").eq("project_id",projectId).order("role",{ascending:true}),client.from("project_contacts").select("*").eq("project_id",projectId).order("full_name",{ascending:true})]);if(sourcesResult.error)throw sourcesResult.error;if(companiesResult.error)throw companiesResult.error;if(contactsResult.error)throw contactsResult.error;const sources=sourcesResult.data||[],companies=companiesResult.data||[],contacts=contactsResult.data||[];const sourceById=new Map(sources.map(x=>[x.id,x]));const contactCountByCompany={};contacts.forEach(x=>{if(x.company_id)contactCountByCompany[x.company_id]=(contactCountByCompany[x.company_id]||0)+1;});return{sources,contacts,companies:companies.map(x=>({...x,source:sourceById.get(x.source_id)||null,contact_count:contactCountByCompany[x.id]||0}))};}
