@@ -998,18 +998,32 @@ function initMap(ps) {
   }
 }, 250);
 }
-function openProjectIntelligence(projectId, projectName){
-  if (window.BuildScoutIntelligence && typeof window.BuildScoutIntelligence.open === "function") {
-    return window.BuildScoutIntelligence.open(projectId, projectName);
+async function openProjectIntelligence(projectId, projectName){
+  try {
+    if (window.BuildScoutIntelligence && typeof window.BuildScoutIntelligence.open === "function") {
+      await window.BuildScoutIntelligence.open(projectId, projectName);
+      return;
+    }
+    throw new Error("Project Intelligence module did not load.");
+  } catch (error) {
+    console.error("Project Intelligence failed:", error);
+    alert("Project Intelligence could not open. Please refresh and try again.");
   }
-  alert("Project Intelligence is still loading. Please refresh the page and try again.");
 }
-function openScopeBuilder(projectId, projectName){
-  if (window.BuildScoutScope && typeof window.BuildScoutScope.open === "function") {
-    return window.BuildScoutScope.open(projectId, projectName);
+
+async function openScopeBuilder(projectId, projectName){
+  try {
+    if (window.BuildScoutScope && typeof window.BuildScoutScope.open === "function") {
+      await window.BuildScoutScope.open(projectId, projectName);
+      return;
+    }
+    throw new Error("Scope Builder module did not load.");
+  } catch (error) {
+    console.error("Scope Builder failed:", error);
+    alert("Scope Builder could not open. Please refresh and try again.");
   }
-  alert("Scope Builder is still loading. Please refresh the page and try again.");
 }
+
 function viewProject(id){
   const p = projects.find(x => String(x.id) === String(id));
   if (!p) return;
