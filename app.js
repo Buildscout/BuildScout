@@ -259,6 +259,15 @@ function authInputStyle() {
   `;
 }
 
+function esc(value) {
+  return String(value == null ? "" : value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function escapeAuthText(value) {
   return String(value || "")
     .replace(/&/g, "&amp;")
