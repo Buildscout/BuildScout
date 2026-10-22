@@ -570,8 +570,7 @@ function sanitizeProjectCoordinate(project, axis){
     /(^|, )?(dallas|fort worth|austin|chicago|new york|seattle|houston|arlington|plano|frisco|irving|garland|mckinney|denver|phoenix|san antonio|san diego|los angeles|miami|boston|atlanta|nashville|charlotte|detroit|tampa|orlando)/.test(city) ||
     /^(tx|il|ny|wa|co|az|ca|fl|ga|tn|nc|mi|ma)$/.test(state);
 
-  if(isKnownUSCity && (lat<24 || lat>50 || lon<-125 || lon>-66)) return null;
-  return axis==="lat" ? lat : lon;
+  // Reject numerically valid coordinates that are clearly outside the U.S.\n  // BuildScout production data is currently U.S.-based; this prevents bad\n  // geocodes/data from sending a project to Africa/Europe.\n  if (isKnownUSCity && (lat < 24 || lat > 50 || lon < -125 || lon > -66)) return null;\n  if (!isKnownUSCity && (lat < 15 || lat > 72 || lon < -170 || lon > -50)) return null;\n  return axis==="lat" ? lat : lon;
 }
 function money(n){if(!n)return "—"; return n>=1e6?`$${(n/1e6).toFixed(1)}M`:`$${Number(n).toLocaleString()}`}
 function calculateOpportunityScore(p){
@@ -1058,7 +1057,7 @@ if (score >= 90) {
           <button class="btn secondary" onclick="addProjectToPipeline('${p.id}');document.getElementById('modal')?.remove()">Add to pipeline</button>
           <button class="btn secondary" onclick="openProjectIntelligence('${p.id}',${JSON.stringify(projectIdentity(p))})">Project intelligence</button>
           <button class="btn secondary" onclick="openScopeBuilder('${p.id}',${JSON.stringify(p.name || "Project")})">Build scope</button>
-          <button class="btn secondary" onclick="BuildScoutProjectDocuments.open('${p.id}',${JSON.stringify(p.name || "Project")})">Plans & Specs</button>
+          <button class="btn secondary" onclick="openProjectDocuments('${p.id}',${JSON.stringify(p.name || "Project")})">Plans & Specs</button>
           <button class="btn primary" onclick="BuildScoutCRM.open('${p.id}');document.getElementById('modal')?.remove()">Sales CRM</button>
           <button class="btn secondary" onclick="showProjectOnMap('${p.id}')">Show on map</button>
         </div>
@@ -1430,28 +1429,45 @@ function initMap(ps) {
   }
 }, 250);
 }
+async function ensureFeatureModule(src, globalName){
+  if (typeof window[globalName]?.open === "function") return true;
+  await new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = new URL(src, document.baseURI).href + "?runtimeRetry=1";
+    script.onload = resolve;
+    script.onerror = () => reject(new Error("Unable to load " + src));
+    document.head.appendChild(script);
+  });
+  return typeof window[globalName]?.open === "function";
+}
+async function openProjectDocuments(projectId, projectName){
+  try {
+    const loaded = await ensureFeatureModule("project-documents.js", "BuildScoutProjectDocuments");
+    if (!loaded) throw new Error("Plans & Specs module did not register its API.");
+    await window.BuildScoutProjectDocuments.open(projectId, projectName);
+  } catch (error) {
+    console.error("Plans & Specs failed:", error);
+    alert("Plans & Specs could not open: " + (error?.message || error));
+  }
+}
 async function openProjectIntelligence(projectId, projectName){
   try {
-    if (window.BuildScoutIntelligence?.open) {
-      await window.BuildScoutIntelligence.open(projectId, projectName);
-      return;
-    }
-    alert("Project Intelligence is not loaded. Please refresh BuildScout.");
+    const loaded = await ensureFeatureModule("project-intelligence.js", "BuildScoutIntelligence");
+    if (!loaded) throw new Error("Project Intelligence module did not register its API.");
+    await window.BuildScoutIntelligence.open(projectId, projectName);
   } catch (error) {
     console.error("Project Intelligence failed:", error);
-    alert("Project Intelligence could not open. Check the browser console for details.");
+    alert("Project Intelligence could not open: " + (error?.message || error));
   }
 }
 async function openScopeBuilder(projectId, projectName){
   try {
-    if (window.BuildScoutScope?.open) {
-      await window.BuildScoutScope.open(projectId, projectName);
-      return;
-    }
-    alert("Scope Builder is not loaded. Please refresh BuildScout.");
+    const loaded = await ensureFeatureModule("scope-builder.js", "BuildScoutScope");
+    if (!loaded) throw new Error("Scope Builder module did not register its API.");
+    await window.BuildScoutScope.open(projectId, projectName);
   } catch (error) {
     console.error("Scope Builder failed:", error);
-    alert("Scope Builder could not open. Check the browser console for details.");
+    alert("Scope Builder could not open: " + (error?.message || error));
   }
 }
 
@@ -1462,6 +1478,7 @@ window.addPipeline=addPipeline;
 window.addProjectToPipeline=addProjectToPipeline;
 window.openProjectIntelligence=openProjectIntelligence;
 window.openScopeBuilder=openScopeBuilder;
+window.openProjectDocuments=openProjectDocuments;
 window.showProjectOnMap=showProjectOnMap;
 
 // Core feature runtime diagnostics. These are intentionally lightweight and
