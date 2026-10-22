@@ -814,6 +814,13 @@ async function showProjectOnMap(id){
   shell();
   renderPage();
 
+  // Render only the selected project when coming from a project detail.
+  // The normal map view remains available from the dashboard with all projects.
+  const mapHost = document.getElementById("map");
+  if (mapHost) {
+    mapHost.dataset.focusProjectId = String(id);
+  }
+
   let attempts = 0;
   const tryFocus = async () => {
     attempts += 1;
@@ -821,8 +828,8 @@ async function showProjectOnMap(id){
     if (attempts < 25) setTimeout(tryFocus, 150);
   };
 
-  // initMap performs its own fitBounds at ~250ms; run after it so it cannot
-  // move the selected project back to the world view.
+  // initMap may fit its marker set during startup; run after it and keep the
+  // selected project isolated from the normal all-project map.
   setTimeout(tryFocus, 450);
 }
 function highlightProjectCard(id){
@@ -908,6 +915,11 @@ function initMap(ps) {
   if (map) {
     map.remove();
   }
+
+  const focusId = document.getElementById("map")?.dataset.focusProjectId || null;
+  const mapProjects = focusId
+    ? ps.filter(p => String(p.id) === String(focusId))
+    : ps;
   map = L.map("map", {
     zoomControl: true,
     minZoom: 3,
@@ -928,7 +940,7 @@ function initMap(ps) {
   markerLayer =
   L.featureGroup().addTo(map);
   projectMarkers = {};
- ps
+  mapProjects
   .filter(p => {
     const lat = Number(p.lat);
     const lon = Number(p.lon);
@@ -980,7 +992,7 @@ function initMap(ps) {
     if (bounds.isValid()) {
       map.fitBounds(bounds, {
         padding: [30, 30],
-        maxZoom: 11
+        maxZoom: focusId ? 16 : 11
       });
     }
   }
