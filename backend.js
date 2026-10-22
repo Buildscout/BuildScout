@@ -29,45 +29,30 @@ window.BuildScoutBackend = (() => {
     const token=accessToken||session?.access_token;
     if(!token)throw new Error("No authenticated session token is available.");
 
-    const pageSize=1000;
-    const fetchPage=async(offset)=>{
-      const response=await fetch(`/api/projects?offset=${offset}&limit=${pageSize}`,{
-        headers:{Authorization:`Bearer ${token}`}
-      });
-      let payload=null;
-      try{payload=await response.json();}catch(_){}
-      if(!response.ok){
-        throw new Error(payload?.message||payload?.error||`Projects API returned HTTP ${response.status}.`);
-      }
-      return payload;
-    };
-
-    // Load the first page first so we know the dataset size, then fetch the
-    // remaining pages concurrently. The old implementation fetched 33 pages
-    // serially, which made sign-in appear frozen on a 32k+ project dataset.
-    const first=await fetchPage(0);
-    const total=Number(first?.total||0);
-    const rows=Array.isArray(first?.data)?[...first.data]:[];
-
-    if(total>rows.length){
-      const offsets=[];
-      for(let offset=pageSize;offset<total;offset+=pageSize) offsets.push(offset);
-      const batches=[];
-      for(let i=0;i<offsets.length;i+=6){
-        batches.push(await Promise.all(offsets.slice(i,i+6).map(fetchPage)));
-      }
-      batches.flat().forEach(payload=>{
-        if(Array.isArray(payload?.data)) rows.push(...payload.data);
-      });
+    // Load a bounded first page. The old client downloaded and rendered the
+    // entire 30k+ project table at sign-in, which made the UI extremely slow
+    // and could leave the screen looking empty while the request ran.
+    const response=await fetch("/api/projects?offset=0&limit=500",{
+      headers:{Authorization:`Bearer ${token}`}
+    });
+    let payload=null;
+    try{payload=await response.json();}catch(_){}
+    if(!response.ok){
+      throw new Error(payload?.message||payload?.error||`Projects API returned HTTP ${response.status}.`);
     }
 
-    if(total>0 && rows.length===0){
-      throw new Error(`Projects API reports ${total} projects but returned 0 rows.`);
+    const rows=Array.isArray(payload?.data)?payload.data:[];
+    if(payload?.total>0 && rows.length===0){
+      throw new Error(`Projects API reports ${payload.total} projects but returned 0 rows.`);
     }
 
-    console.log("BuildScout server project query:",{loaded:rows.length,total});
+    console.log("BuildScout server project query:",{
+      loaded:rows.length,
+      total:Number(payload?.total||rows.length)
+    });
     return rows;
   }
+
   async function getProjectDocuments(projectId){if(!client)init();const{data,error}=await client.from("project_documents").select("*").eq("project_id",projectId).eq("is_public",true).order("document_type",{ascending:true}).order("sheet_number",{ascending:true});if(error)throw error;return data||[];}
   async function getProjectDocumentCounts(){if(!client)init();const counts={};let from=0;const size=1000;while(true){const{data,error}=await client.from("project_documents").select("project_id").eq("is_public",true).range(from,from+size-1);if(error)throw error;(data||[]).forEach(row=>{const key=String(row.project_id);counts[key]=(counts[key]||0)+1;});if(!data||data.length<size)break;from+=size;}return counts;}
   async function getProjectIntelligence(projectId){if(!client)init();const [sourcesResult,companiesResult,contactsResult]=await Promise.all([client.from("project_sources").select("*").eq("project_id",projectId).order("verified_at",{ascending:false}),client.from("project_companies").select("*").eq("project_id",projectId).order("role",{ascending:true}),client.from("project_contacts").select("*").eq("project_id",projectId).order("full_name",{ascending:true})]);if(sourcesResult.error)throw sourcesResult.error;if(companiesResult.error)throw companiesResult.error;if(contactsResult.error)throw contactsResult.error;const sources=sourcesResult.data||[],companies=companiesResult.data||[],contacts=contactsResult.data||[];const sourceById=new Map(sources.map(x=>[x.id,x]));const contactCountByCompany={};contacts.forEach(x=>{if(x.company_id)contactCountByCompany[x.company_id]=(contactCountByCompany[x.company_id]||0)+1;});return{sources,contacts,companies:companies.map(x=>({...x,source:sourceById.get(x.source_id)||null,contact_count:contactCountByCompany[x.id]||0}))};}
