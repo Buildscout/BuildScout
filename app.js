@@ -458,10 +458,9 @@ function isDisplayLead(p) {
 async function loadSupabaseProjects() {
   try {
     const rows = await BuildScoutBackend.getProjects(currentSession?.access_token || null);
-    const documentCounts = await BuildScoutBackend.getProjectDocumentCounts().catch(error => {
-      console.warn("Plan availability could not load:", error);
-      return {};
-    });
+    // Do not block the dashboard on document-count aggregation. It can span
+    // thousands of rows and is not required to render projects.
+    const documentCounts = {};
 
     const supabaseProjects = rows
   .filter(() => true)
