@@ -26,10 +26,12 @@ window.BuildScoutBackend = (() => {
   }
   async function signOut(){if(!client)return;const{error}=await client.auth.signOut();if(error)throw error;}
   async function getSession(){if(!client)init();const{data,error}=await client.auth.getSession();if(error)throw error;return data.session;}
-  async function getProjects(){
+  async function getProjects(accessToken=null){
     if(!client)init();
-    const session=await getSession();
-    const token=session?.access_token;
+    // Prefer the session token already returned by sign-in. This avoids a
+    // transient Supabase getSession() race immediately after authentication.
+    const session=accessToken?null:await getSession();
+    const token=accessToken||session?.access_token;
     if(!token)throw new Error("No authenticated session token is available.");
 
     const rows=[];
