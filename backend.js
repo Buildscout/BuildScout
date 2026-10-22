@@ -28,40 +28,35 @@ window.BuildScoutBackend = (() => {
   async function getSession(){if(!client)init();const{data,error}=await client.auth.getSession();if(error)throw error;return data.session;}
   async function getProjects(){
     if(!client)init();
+    const session=await getSession();
+    const token=session?.access_token;
+    if(!token)throw new Error("No authenticated session token is available.");
+
     const rows=[];
     const pageSize=1000;
 
-    // Ask Supabase for the authoritative row count as well as the page.
-    // This makes a large table deterministic instead of relying on the
-    // client/default row limit.
-    const first=await client
-      .from("projects")
-      .select("*",{count:"exact"})
-      .order("created_at",{ascending:false})
-      .range(0,pageSize-1);
+    for(let offset=0;;offset+=pageSize){
+      const response=await fetch(`/api/projects?offset=${offset}&limit=${pageSize}`,{
+        headers:{Authorization:`Bearer ${token}`}
+      });
+      let payload=null;
+      try{payload=await response.json();}catch(_){}
 
-    if(first.error)throw first.error;
+      if(!response.ok){
+        throw new Error(payload?.message||payload?.error||`Projects API returned HTTP ${response.status}.`);
+      }
 
-    const total=Number(first.count||0);
-    rows.push(...(first.data||[]));
+      const batch=Array.isArray(payload?.data)?payload.data:[];
+      rows.push(...batch);
 
-    for(let from=pageSize;from<total;from+=pageSize){
-      const{data,error}=await client
-        .from("projects")
-        .select("*")
-        .order("created_at",{ascending:false})
-        .range(from,Math.min(from+pageSize-1,total-1));
-      if(error)throw error;
-      rows.push(...(data||[]));
+      if(offset===0 && Number(payload?.total||0)>0 && batch.length===0){
+        throw new Error(`Projects API reports ${payload.total} projects but returned 0 rows.`);
+      }
+
+      if(batch.length<pageSize)break;
     }
 
-    // If the count says data exists but the first page is empty, surface
-    // that discrepancy instead of silently showing an empty workspace.
-    if(total>0 && rows.length===0){
-      throw new Error("Supabase reports "+total+" projects, but the authenticated project query returned 0 rows.");
-    }
-
-    console.log("BuildScout project query:",{total,loaded:rows.length});
+    console.log("BuildScout server project query:",{loaded:rows.length});
     return rows;
   }
   async function getProjectDocuments(projectId){if(!client)init();const{data,error}=await client.from("project_documents").select("*").eq("project_id",projectId).eq("is_public",true).order("document_type",{ascending:true}).order("sheet_number",{ascending:true});if(error)throw error;return data||[];}
