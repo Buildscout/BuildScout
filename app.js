@@ -447,7 +447,7 @@ function isDisplayLead(p) {
 }
 async function loadSupabaseProjects() {
   try {
-    const rows = await BuildScoutBackend.getProjects();
+    const rows = await BuildScoutBackend.getProjects(currentSession?.access_token || null);
     const documentCounts = await BuildScoutBackend.getProjectDocumentCounts().catch(error => {
       console.warn("Plan availability could not load:", error);
       return {};
