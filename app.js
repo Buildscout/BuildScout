@@ -1465,7 +1465,7 @@ async function openProjectIntelligence(projectId, projectName){
   try {
     const loaded = await ensureFeatureModule("project-intelligence.js", "BuildScoutIntelligence");
     if (!loaded) throw new Error("Project Intelligence module did not register its API.");
-    await window.BuildScoutIntelligence.open(projectId, projectName);
+    await window.BuildScoutIntelligence.open(projectId, projectName, project);
   } catch (error) {
     console.error("Project Intelligence failed:", error);
     alert("Project Intelligence could not open: " + (error?.message || error));
