@@ -998,7 +998,7 @@ function initMap(ps) {
   }
 }, 250);
 }
-async async function openProjectIntelligence(projectId, projectName){
+async function openProjectIntelligence(projectId, projectName){
   try {
     if (window.BuildScoutIntelligence?.open) {
       await window.BuildScoutIntelligence.open(projectId, projectName);
