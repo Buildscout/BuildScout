@@ -1155,6 +1155,12 @@ async function focusProjectOnMap(id){
     lon = NaN;
   }
   const address = [project.street_address, project.city, project.zip_code].filter(Boolean).join(", ");
+  const US_CITY_CENTERS = {
+    dallas:[32.7767,-96.7970],"fort worth":[32.7555,-97.3308],austin:[30.2672,-97.7431],
+    houston:[29.7604,-95.3698],chicago:[41.8781,-87.6298],detroit:[42.3314,-83.0458],
+    "san antonio":[29.4241,-98.4936],denver:[39.7392,-104.9903],phoenix:[33.4484,-112.0740],
+    atlanta:[33.7490,-84.3880],miami:[25.7617,-80.1918]
+  };
   const austinCoordsSuspect =
     city.includes("austin") &&
     (!Number.isFinite(lat) || !Number.isFinite(lon) ||
@@ -1179,6 +1185,14 @@ async function focusProjectOnMap(id){
       }
     } catch (error) {
       console.warn("Address geocoding fallback failed:", error);
+    }
+  }
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+    const cityKey = String(project.city || "").toLowerCase().replace(/\s+/g," ").trim();
+    const cityName = Object.keys(US_CITY_CENTERS).find(k => cityKey.includes(k));
+    if (cityName) {
+      [lat, lon] = US_CITY_CENTERS[cityName];
     }
   }
 
