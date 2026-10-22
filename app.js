@@ -1023,3 +1023,5 @@ async function openScopeBuilder(projectId, projectName){
   }
 }
 
+// Start the BuildScout application after all runtime scripts are loaded.
+bootBuildScout();
