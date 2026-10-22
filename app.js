@@ -445,7 +445,7 @@ async function loadSupabaseProjects() {
     });
 
     const supabaseProjects = rows
-  .filter(p => isDisplayLead(p) || saved.includes(String(p.id)))
+  .filter(() => true)
   .map(p => ({
       id: p.id,
       name: p.name,
