@@ -181,7 +181,7 @@ function renderAuthScreen(message = "") {
         <button
           id="authSubmit"
           type="button"
-          onclick="handleAuthSubmit()"
+          
           style="
             width:100%;
             border:0;
@@ -361,17 +361,24 @@ async function startBuildScout(session = null) {
 
   const userId = currentSession.user.id;
 
-  // Render the main workspace from the authenticated project API first.
-  // User-state tables (saved/pipeline) must never be allowed to block login:
-  // a Supabase auth/RLS request can otherwise leave the button stuck on
-  // "Signing in…" even though authentication succeeded.
+  // Authentication is complete at this point. Enter the application
+  // immediately; never make the user wait for the 32k+ project dataset or
+  // optional account-state tables to finish loading.
   pipeline = {};
   pipelineDetails = {};
+  saved = [];
+  projects = [];
 
-  await loadSupabaseProjects();
+  shell();
+  renderPage();
 
-  // Hydrate optional account state after the project workspace is visible.
-  // Failures are non-fatal and do not prevent the dashboard from working.
+  // Load projects in the background. Errors are shown by loadSupabaseProjects
+  // without trapping the user on the authentication screen.
+  loadSupabaseProjects().catch(error => {
+    console.error("Background project load failed:", error);
+  });
+
+  // Hydrate optional account state independently.
   BuildScoutBackend.getSavedProjects(userId)
     .then(savedRows => {
       saved = savedRows.map(row => String(row.project_id));
