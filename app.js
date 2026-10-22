@@ -547,6 +547,7 @@ document_count: Number(documentCounts[String(p.id)] || 0)
 let page="dashboard", query="", selectedType="All", selectedStage="All", minValue=0;
 let map, markerLayer;
 let projectMarkers = {};
+let pendingMapFocusId = null;
 const app=document.getElementById("app");
 
 function persist(){
@@ -1059,9 +1060,9 @@ if (score >= 90) {
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;">
           <button class="btn primary" onclick="toggleSave('${p.id}')">${isSaved ? "Saved" : "Save project"}</button>
           <button class="btn secondary" onclick="addProjectToPipeline('${p.id}');document.getElementById('modal')?.remove()">Add to pipeline</button>
-          <button class="btn secondary" onclick="openProjectIntelligence('${p.id}',${JSON.stringify(projectIdentity(p))})">Project intelligence</button>
-          <button class="btn secondary" onclick="openScopeBuilder('${p.id}',${JSON.stringify(p.name || "Project")})">Build scope</button>
-          <button class="btn secondary" onclick="openProjectDocuments('${p.id}',${JSON.stringify(p.name || "Project")})">Plans & Specs</button>
+          <button class="btn secondary" onclick="openProjectIntelligence('${p.id}')">Project intelligence</button>
+          <button class="btn secondary" onclick="openScopeBuilder('${p.id}')">Build scope</button>
+          <button class="btn secondary" onclick="openProjectDocuments('${p.id}')">Plans & Specs</button>
           <button class="btn primary" onclick="BuildScoutCRM.open('${p.id}');document.getElementById('modal')?.remove()">Sales CRM</button>
           <button class="btn secondary" onclick="showProjectOnMap('${p.id}')">Show on map</button>
         </div>
@@ -1132,7 +1133,7 @@ function projectCard(p){
     <div class="opportunity-facts"><div><small>Value</small><b>${money(p.value)}</b></div><div><small>Project team</small><b>${q.team?"Identified":"Research needed"}</b></div><div><small>Plans</small><b>${q.plans?`${p.document_count} available`:"Not found yet"}</b></div></div>
     <div class="opportunity-next"><small>BUILDSCOUT NEXT MOVE</small><b>${esc(nextMove(p))}</b></div>
     <div class="opportunity-source"><span class="confidence-pill ${q.known>=3?"good":q.known===2?"mid":"low"}">${q.label}</span><span>${esc(p.source||"Unknown source")}${p.permit_number?` · Permit ${esc(p.permit_number)}`:""}</span></div>
-    <div class="opportunity-actions"><button class="btn primary" onclick="viewProject('${p.id}')">Open project</button><button class="btn secondary" onclick="openProjectIntelligence('${p.id}',${JSON.stringify(projectIdentity(p))})">Intelligence</button>${q.plans?`<button class="btn secondary" onclick="BuildScoutProjectDocuments.open('${p.id}',${JSON.stringify(p.name||"Project")})">View plans</button>`:""}<button class="btn secondary" onclick="toggleSave('${p.id}')">${saved.includes(p.id)?"Saved":"Save"}</button></div>
+    <div class="opportunity-actions"><button class="btn primary" onclick="viewProject('${p.id}')">Open project</button><button class="btn secondary" onclick="openProjectIntelligence('${p.id}')">Intelligence</button>${q.plans?`<button class="btn secondary" onclick="openProjectDocuments('${p.id}')">View plans</button>`:""}<button class="btn secondary" onclick="toggleSave('${p.id}')">${saved.includes(p.id)?"Saved":"Save"}</button></div>
   </article>`;
 }
 async function focusProjectOnMap(id){
@@ -1231,12 +1232,10 @@ async function showProjectOnMap(id){
 
   // Set the focus before renderPage() initializes Leaflet so the selected
   // project is the only marker and the map fits directly to it.
-  const mapHost = document.getElementById("map");
-  if (mapHost) {
-    mapHost.dataset.focusProjectId = String(id);
-  }
+  pendingMapFocusId = String(id);
 
   // The normal Project Map navigation remains the all-project map.
+  // Keep the focus request outside the DOM because renderPage() replaces #map.
   renderPage();
 
   let attempts = 0;
@@ -1342,7 +1341,8 @@ function initMap(ps) {
     map.remove();
   }
 
-  const focusId = document.getElementById("map")?.dataset.focusProjectId || null;
+  const focusId = pendingMapFocusId;
+  pendingMapFocusId = null;
   const mapProjects = focusId
     ? ps.filter(p => String(p.id) === String(focusId))
     : ps;
@@ -1445,6 +1445,8 @@ async function ensureFeatureModule(src, globalName){
   return typeof window[globalName]?.open === "function";
 }
 async function openProjectDocuments(projectId, projectName){
+  const project = projects.find(p => String(p.id) === String(projectId));
+  projectName = projectName || projectIdentity(project || {}) || "Project";
   try {
     const loaded = await ensureFeatureModule("project-documents.js", "BuildScoutProjectDocuments");
     if (!loaded) throw new Error("Plans & Specs module did not register its API.");
@@ -1455,6 +1457,8 @@ async function openProjectDocuments(projectId, projectName){
   }
 }
 async function openProjectIntelligence(projectId, projectName){
+  const project = projects.find(p => String(p.id) === String(projectId));
+  projectName = projectName || projectIdentity(project || {}) || "Project";
   try {
     const loaded = await ensureFeatureModule("project-intelligence.js", "BuildScoutIntelligence");
     if (!loaded) throw new Error("Project Intelligence module did not register its API.");
@@ -1465,6 +1469,8 @@ async function openProjectIntelligence(projectId, projectName){
   }
 }
 async function openScopeBuilder(projectId, projectName){
+  const project = projects.find(p => String(p.id) === String(projectId));
+  projectName = projectName || projectIdentity(project || {}) || "Project";
   try {
     const loaded = await ensureFeatureModule("scope-builder.js", "BuildScoutScope");
     if (!loaded) throw new Error("Scope Builder module did not register its API.");
