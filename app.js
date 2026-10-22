@@ -382,7 +382,7 @@ async function startBuildScout(session = null) {
   });
 
   // Hydrate optional account state independently.
-  BuildScoutBackend.getSavedProjects(userId)
+  BuildScoutBackend.getSavedProjects(userId,currentSession?.access_token)
     .then(savedRows => {
       saved = savedRows.map(row => String(row.project_id));
       renderPage();
@@ -392,7 +392,7 @@ async function startBuildScout(session = null) {
       console.warn("Saved projects could not be loaded; continuing without saved state:", error);
     });
 
-  BuildScoutBackend.getPipeline(userId)
+  BuildScoutBackend.getPipeline(userId,currentSession?.access_token)
     .then(pipelineRows => {
       pipelineRows.forEach(row => {
         pipeline[row.project_id] = row.stage;
@@ -731,7 +731,11 @@ function filterBar(){
     await BuildScoutBackend.updatePipeline(
       userId,
       projectId,
-      "New Opportunity"
+      "New Opportunity",
+      undefined,
+      undefined,
+      {},
+      currentSession?.access_token
     );
 
     pipeline[projectId] = "New Opportunity";
@@ -1075,10 +1079,10 @@ async function toggleSave(id){
 
     const projectId=String(id);
     if(saved.includes(projectId)){
-      await BuildScoutBackend.unsaveProject(userId,projectId);
+      await BuildScoutBackend.unsaveProject(userId,projectId,currentSession?.access_token);
       saved=saved.filter(x=>String(x)!==projectId);
     }else{
-      await BuildScoutBackend.saveProject(userId,projectId);
+      await BuildScoutBackend.saveProject(userId,projectId,currentSession?.access_token);
       saved=[...saved,projectId];
     }
 
