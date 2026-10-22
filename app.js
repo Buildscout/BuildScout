@@ -1063,7 +1063,7 @@ if (score >= 90) {
           <button class="btn secondary" onclick="openProjectIntelligence('${p.id}')">Project intelligence</button>
           <button class="btn secondary" onclick="openScopeBuilder('${p.id}')">Build scope</button>
           <button class="btn secondary" onclick="openProjectDocuments('${p.id}')">Plans & Specs</button>
-          <button class="btn primary" onclick="BuildScoutCRM.open('${p.id}');document.getElementById('modal')?.remove()">Sales CRM</button>
+          <button class="btn primary" onclick="openSalesCRM('${p.id}')">Sales CRM</button>
           <button class="btn secondary" onclick="showProjectOnMap('${p.id}')">Show on map</button>
         </div>
       </div>
@@ -1346,14 +1346,12 @@ function initMap(ps) {
   const mapProjects = focusId
     ? ps.filter(p => String(p.id) === String(focusId))
     : ps;
-  const configuredCenter = Array.isArray(CFG?.mapCenter) &&
-    Number.isFinite(Number(CFG.mapCenter[0])) &&
-    Number.isFinite(Number(CFG.mapCenter[1])) &&
-    Math.abs(Number(CFG.mapCenter[0])) >= 5 &&
-    Math.abs(Number(CFG.mapCenter[0])) <= 90 &&
-    Math.abs(Number(CFG.mapCenter[1])) <= 180
-      ? [Number(CFG.mapCenter[0]), Number(CFG.mapCenter[1])]
-      : [32.7767, -96.7970];
+  const configuredCenter = (() => {
+    const lat = Number(CFG?.mapCenter?.[0]);
+    const lon = Number(CFG?.mapCenter?.[1]);
+    const plausibleUS = Number.isFinite(lat) && Number.isFinite(lon) && lat >= 15 && lat <= 72 && lon >= -170 && lon <= -50;
+    return plausibleUS ? [lat, lon] : [32.7767, -96.7970];
+  })();
 
   map = L.map("map", {
     zoomControl: true,
@@ -1377,24 +1375,16 @@ function initMap(ps) {
   projectMarkers = {};
   mapProjects
   .filter(p => {
-    const lat = Number(p.lat);
-    const lon = Number(p.lon);
-
-    return (
-      Number.isFinite(lat) &&
-      Number.isFinite(lon) &&
-      lat >= -90 &&
-      lat <= 90 &&
-      lon >= -180 &&
-      lon <= 180
-    );
+    const lat = sanitizeProjectCoordinate({ ...p, latitude: p.lat, longitude: p.lon }, "lat");
+    const lon = sanitizeProjectCoordinate({ ...p, latitude: p.lat, longitude: p.lon }, "lon");
+    return lat !== null && lon !== null;
   })
  .forEach(p => {
   const marker =
-    L.marker([
-      Number(p.lat),
-      Number(p.lon)
-    ]).addTo(markerLayer);
+    const safeLat = sanitizeProjectCoordinate({ ...p, latitude: p.lat, longitude: p.lon }, "lat");
+    const safeLon = sanitizeProjectCoordinate({ ...p, latitude: p.lat, longitude: p.lon }, "lon");
+    if (safeLat === null || safeLon === null) return;
+    L.marker([safeLat, safeLon]).addTo(markerLayer);
 
   projectMarkers[p.id] = marker;
 
@@ -1444,6 +1434,19 @@ async function ensureFeatureModule(src, globalName){
   });
   return typeof window[globalName]?.open === "function";
 }
+async function openSalesCRM(projectId){
+  const project = projects.find(p => String(p.id) === String(projectId));
+  if (!project) { alert("BuildScout could not find this project. Please refresh the project list."); return; }
+  document.getElementById("modal")?.remove();
+  try {
+    const loaded = await ensureFeatureModule("crm-ui.js", "BuildScoutCRM");
+    if (!loaded) throw new Error("Sales CRM module did not register its API.");
+    await window.BuildScoutCRM.open(projectId);
+  } catch (error) {
+    console.error("Sales CRM failed:", error);
+    alert("Sales CRM could not open: " + (error?.message || error));
+  }
+}
 async function openProjectDocuments(projectId, projectName){
   const project = projects.find(p => String(p.id) === String(projectId));
   projectName = projectName || projectIdentity(project || {}) || "Project";
@@ -1489,6 +1492,7 @@ window.addProjectToPipeline=addProjectToPipeline;
 window.openProjectIntelligence=openProjectIntelligence;
 window.openScopeBuilder=openScopeBuilder;
 window.openProjectDocuments=openProjectDocuments;
+window.openSalesCRM=openSalesCRM;
 window.showProjectOnMap=showProjectOnMap;
 
 // Core feature runtime diagnostics. These are intentionally lightweight and
