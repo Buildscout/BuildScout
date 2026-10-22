@@ -1,5 +1,6 @@
 window.BuildScoutBackend = (() => {
   let client = null;
+  let lastAccessToken = null;
 
   function configured() { const c = window.BUILDSCOUT_CONFIG || {}; return Boolean(c.supabaseUrl && c.supabasePublishableKey); }
   function init() { if (client) return client; if (!configured()) throw new Error("Supabase configuration is missing."); client = window.supabase.createClient(window.BUILDSCOUT_CONFIG.supabaseUrl, window.BUILDSCOUT_CONFIG.supabasePublishableKey); return client; }
@@ -19,9 +20,10 @@ window.BuildScoutBackend = (() => {
       throw new Error("Sign-in succeeded but no authenticated session was returned.");
     }
 
+    lastAccessToken = data.session.access_token;
     return data;
   }
-  async function signOut(){if(!client)return;const{error}=await client.auth.signOut();if(error)throw error;}
+  async function signOut(){if(!client)return;const{error}=await client.auth.signOut();lastAccessToken=null;if(error)throw error;}
   async function getSession(){if(!client)init();const{data,error}=await client.auth.getSession();if(error)throw error;return data.session;}
   async function getProjects(accessToken=null){
     if(!client)init();
@@ -87,9 +89,9 @@ window.BuildScoutBackend = (() => {
     }
     return savedRows;
   }
-  async function userStateRequest(body={}, query=""){
-    const session=await getSession();
-    const token=session?.access_token;
+  async function userStateRequest(body={}, query="", accessToken=null){
+    const session=accessToken?null:await getSession();
+    const token=accessToken||session?.access_token||lastAccessToken;
     if(!token)throw new Error("No authenticated session token is available.");
     const response=await fetch("/api/user-state"+query,{
       method:body&&Object.keys(body).length?"POST":"GET",
@@ -100,15 +102,15 @@ window.BuildScoutBackend = (() => {
     if(!response.ok)throw new Error(payload?.message||payload?.error||`User state API returned HTTP ${response.status}.`);
     return payload?.data||[];
   }
-  async function getSavedProjects(userId){const rows=await userStateRequest({}, "?type=saved");return rows;}
-  async function saveProject(userId,projectId){return userStateRequest({type:"saved",action:"save",projectId});}
-  async function unsaveProject(userId,projectId){await userStateRequest({type:"saved",action:"remove",projectId});}
-  async function getPipeline(userId){return userStateRequest({}, "?type=pipeline");}
-  async function removePipelineItem(userId,projectId){await userStateRequest({type:"pipeline",action:"remove",projectId});}
-  async function updatePipeline(userId,projectId,stage,notes=undefined,followUpAt=undefined,crm={}){
+  async function getSavedProjects(userId,accessToken=null){const rows=await userStateRequest({}, "?type=saved",accessToken);return rows;}
+  async function saveProject(userId,projectId,accessToken=null){return userStateRequest({type:"saved",action:"save",projectId},"",accessToken);}
+  async function unsaveProject(userId,projectId,accessToken=null){await userStateRequest({type:"saved",action:"remove",projectId},"",accessToken);}
+  async function getPipeline(userId,accessToken=null){return userStateRequest({}, "?type=pipeline",accessToken);}
+  async function removePipelineItem(userId,projectId,accessToken=null){await userStateRequest({type:"pipeline",action:"remove",projectId},"",accessToken);}
+  async function updatePipeline(userId,projectId,stage,notes=undefined,followUpAt=undefined,crm={},accessToken=null){
     const body={type:"pipeline",action:"upsert",projectId,stage,notes,follow_up_at:followUpAt||null};
     ["opportunity_value","probability","expected_close_date","next_action","lost_reason"].forEach(k=>{if(crm[k]!==undefined)body[k]=crm[k]||null;});
-    return userStateRequest(body);
+    return userStateRequest(body,"",accessToken);
   }
   async function getContacts(userId,projectId){if(!client)init();const{data,error}=await client.from("crm_contacts").select("*").eq("user_id",userId).eq("project_id",projectId).order("is_primary",{ascending:false}).order("created_at",{ascending:true});if(error)throw error;return data||[];}
   async function saveContact(contact){if(!client)init();const row={...contact,updated_at:new Date().toISOString()};const query=row.id?client.from("crm_contacts").update(row).eq("id",row.id).eq("user_id",row.user_id):client.from("crm_contacts").insert(row);const{data,error}=await query.select().single();if(error)throw error;return data;}
