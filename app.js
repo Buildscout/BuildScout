@@ -740,6 +740,80 @@ function filterBar(){
   }
 }
 
+function viewProject(id){
+  const p=projects.find(x=>String(x.id)===String(id));
+  if(!p)return;
+
+  document.getElementById("modal")?.remove();
+  document.body.insertAdjacentHTML("beforeend",`<div class="modal" id="modal">
+    <div class="modalbox">
+      <button class="close" onclick="document.getElementById('modal').remove()">✕</button>
+      <span class="tag">${esc(p.type||"Project")}</span>
+      <span class="tag">${esc(p.stage||"Unknown")}</span>
+      <h1>${esc(p.name||"Construction opportunity")}</h1>
+      <div class="muted">${esc([p.street_address,p.city,p.zip_code].filter(Boolean).join(", "))}</div>
+      <div class="statline" style="margin-top:18px">
+        <div class="stat"><small>Estimated value</small><b>${money(p.value)}</b></div>
+        <div class="stat"><small>Units</small><b>${p.units||"—"}</b></div>
+        <div class="stat"><small>Opportunity score</small><b>${p.score||0}/100</b></div>
+        <div class="stat"><small>Last verified</small><b>${esc(p.last_verified||"—")}</b></div>
+      </div>
+      <div class="grid">
+        <div class="panel">
+          <h3>Project team</h3>
+          <p><b>Developer:</b> ${esc(p.developer||"Not identified")}</p>
+          <p><b>GC:</b> ${esc(p.gc||"Not identified")}</p>
+        </div>
+        <div class="panel">
+          <h3>Permit intelligence</h3>
+          <p><b>Permit:</b> ${esc(p.permit_number||"Not available")}</p>
+          <p><b>Source:</b> ${esc(p.source||"Not available")}</p>
+          ${p.source_url?`<p><a href="${esc(p.source_url)}" target="_blank" rel="noopener noreferrer">Open source record →</a></p>`:""}
+        </div>
+      </div>
+      <div class="panel" style="margin-top:12px">
+        <h3>What to do next</h3>
+        <p>${esc(nextMove(p))}</p>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn primary" onclick="toggleSave('${String(p.id)}')">${saved.includes(String(p.id))?"Remove from saved":"Save project"}</button>
+        <button class="btn secondary" onclick="openProjectIntelligence('${String(p.id)}',${JSON.stringify(projectIdentity(p))})">Project intelligence</button>
+        <button class="btn secondary" onclick="addProjectToPipeline('${String(p.id)}');document.getElementById('modal')?.remove()">Add to pipeline</button>
+      </div>
+    </div>
+  </div>`);
+}
+
+async function toggleSave(id){
+  try{
+    const userId=currentSession?.user?.id;
+    if(!userId){
+      renderAuthScreen("Please sign in again.");
+      return;
+    }
+
+    const projectId=String(id);
+    if(saved.includes(projectId)){
+      await BuildScoutBackend.unsaveProject(userId,projectId);
+      saved=saved.filter(x=>String(x)!==projectId);
+    }else{
+      await BuildScoutBackend.saveProject(userId,projectId);
+      saved=[...saved,projectId];
+    }
+
+    document.getElementById("modal")?.remove();
+    shell();
+    renderPage();
+  }catch(error){
+    console.error("Failed to update saved project:",error);
+    alert("Unable to update saved project: "+(error?.message||error));
+  }
+}
+
+function addPipeline(id){
+  return addProjectToPipeline(String(id));
+}
+
 function projectIdentity(p){
   const raw=String(p.name||"").trim();
   const generic=!raw||/^permit\b/i.test(raw)||/^#?[a-z0-9-]+$/i.test(raw);
@@ -1079,6 +1153,13 @@ async function openScopeBuilder(projectId, projectName){
     alert("Scope Builder could not open. Check the browser console for details.");
   }
 }
+
+// Inline card handlers call these through the global window object.
+window.viewProject=viewProject;
+window.toggleSave=toggleSave;
+window.addPipeline=addPipeline;
+window.openProjectIntelligence=openProjectIntelligence;
+window.addProjectToPipeline=addProjectToPipeline;
 
 // Start the BuildScout application after all runtime scripts are loaded.
 bootBuildScout();
