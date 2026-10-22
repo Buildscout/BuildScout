@@ -361,35 +361,43 @@ async function startBuildScout(session = null) {
 
   const userId = currentSession.user.id;
 
-  // Load optional user-state independently so a permissions/data problem
-  // cannot make a valid authentication session look like a failed login.
-  try {
-    const savedRows = await BuildScoutBackend.getSavedProjects(userId);
-    saved = savedRows.map(row => String(row.project_id));
-  } catch (error) {
-    saved = [];
-    console.warn("Saved projects could not be loaded; continuing without saved state:", error);
-  }
-
+  // Render the main workspace from the authenticated project API first.
+  // User-state tables (saved/pipeline) must never be allowed to block login:
+  // a Supabase auth/RLS request can otherwise leave the button stuck on
+  // "Signing in…" even though authentication succeeded.
   pipeline = {};
   pipelineDetails = {};
 
-  try {
-    const pipelineRows = await BuildScoutBackend.getPipeline(userId);
-    pipelineRows.forEach(row => {
-      pipeline[row.project_id] = row.stage;
-      pipelineDetails[row.project_id] = {
-        notes: row.notes || "",
-        follow_up_at: row.follow_up_at || null
-      };
-    });
-  } catch (error) {
-    console.warn("Pipeline could not be loaded; continuing without pipeline state:", error);
-  }
-
   await loadSupabaseProjects();
+
+  // Hydrate optional account state after the project workspace is visible.
+  // Failures are non-fatal and do not prevent the dashboard from working.
+  BuildScoutBackend.getSavedProjects(userId)
+    .then(savedRows => {
+      saved = savedRows.map(row => String(row.project_id));
+      renderPage();
+    })
+    .catch(error => {
+      saved = [];
+      console.warn("Saved projects could not be loaded; continuing without saved state:", error);
+    });
+
+  BuildScoutBackend.getPipeline(userId)
+    .then(pipelineRows => {
+      pipelineRows.forEach(row => {
+        pipeline[row.project_id] = row.stage;
+        pipelineDetails[row.project_id] = {
+          notes: row.notes || "",
+          follow_up_at: row.follow_up_at || null
+        };
+      });
+      renderPage();
+    })
+    .catch(error => {
+      console.warn("Pipeline could not be loaded; continuing without pipeline state:", error);
+    });
 }
- 
+
 async function bootBuildScout() {
   try {
     currentSession = await BuildScoutBackend.getSession();
