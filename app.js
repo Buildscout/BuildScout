@@ -741,49 +741,323 @@ function filterBar(){
 }
 
 function viewProject(id){
-  const p=projects.find(x=>String(x.id)===String(id));
-  if(!p)return;
+  const p = projects.find(x => String(x.id) === String(id));
+  if (!p) return;
 
-  document.getElementById("modal")?.remove();
-  document.body.insertAdjacentHTML("beforeend",`<div class="modal" id="modal">
-    <div class="modalbox">
-      <button class="close" onclick="document.getElementById('modal').remove()">✕</button>
-      <span class="tag">${esc(p.type||"Project")}</span>
-      <span class="tag">${esc(p.stage||"Unknown")}</span>
-      <h1>${esc(p.name||"Construction opportunity")}</h1>
-      <div class="muted">${esc([p.street_address,p.city,p.zip_code].filter(Boolean).join(", "))}</div>
-      <div class="statline" style="margin-top:18px">
-        <div class="stat"><small>Estimated value</small><b>${money(p.value)}</b></div>
-        <div class="stat"><small>Units</small><b>${p.units||"—"}</b></div>
-        <div class="stat"><small>Opportunity score</small><b>${p.score||0}/100</b></div>
-        <div class="stat"><small>Last verified</small><b>${esc(p.last_verified||"—")}</b></div>
-      </div>
-      <div class="grid">
-        <div class="panel">
-          <h3>Project team</h3>
-          <p><b>Developer:</b> ${esc(p.developer||"Not identified")}</p>
-          <p><b>GC:</b> ${esc(p.gc||"Not identified")}</p>
-        </div>
-        <div class="panel">
-          <h3>Permit intelligence</h3>
-          <p><b>Permit:</b> ${esc(p.permit_number||"Not available")}</p>
-          <p><b>Source:</b> ${esc(p.source||"Not available")}</p>
-          ${p.source_url?`<p><a href="${esc(p.source_url)}" target="_blank" rel="noopener noreferrer">Open source record →</a></p>`:""}
-        </div>
-      </div>
-      <div class="panel" style="margin-top:12px">
-        <h3>What to do next</h3>
-        <p>${esc(nextMove(p))}</p>
-      </div>
-      <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
-        <button class="btn primary" onclick="toggleSave('${String(p.id)}')">${saved.includes(String(p.id))?"Remove from saved":"Save project"}</button>
-        <button class="btn secondary" onclick="openProjectIntelligence('${String(p.id)}',${JSON.stringify(projectIdentity(p))})">Project intelligence</button>
-        <button class="btn secondary" onclick="addProjectToPipeline('${String(p.id)}');document.getElementById('modal')?.remove()">Add to pipeline</button>
-      </div>
-    </div>
-  </div>`);
+  const score = Number(p.score || 70);
+const isSaved = saved.includes(p.id);
+
+const location = [
+  p.street_address,
+  p.city,
+  p.zip_code
+].filter(Boolean).join(", ");
+
+const value = Number(p.value || p.estimated_value || 0);
+const stageText = String(p.stage || "").toLowerCase();
+const typeText = String(p.type || p.project_type || "").toLowerCase();
+
+let valuePoints = 0;
+if (value >= 25000000) valuePoints = 20;
+else if (value >= 10000000) valuePoints = 17;
+else if (value >= 5000000) valuePoints = 14;
+else if (value >= 1000000) valuePoints = 10;
+else if (value >= 500000) valuePoints = 6;
+else if (value > 0) valuePoints = 3;
+
+let stagePoints = 0;
+
+if (
+  stageText.includes("pre-construction") ||
+  stageText.includes("preconstruction")
+) {
+  stagePoints = 20;
+} else if (stageText.includes("permit approved")) {
+  stagePoints = 18;
+} else if (stageText.includes("planning")) {
+  stagePoints = 17;
+} else if (stageText.includes("permit")) {
+  stagePoints = 14;
+} else if (stageText.includes("construction")) {
+  stagePoints = 8;
+}
+let typePoints = 0;
+if (typeText.includes("multifamily")) typePoints = 10;
+else if (typeText.includes("commercial")) typePoints = 8;
+else if (typeText.includes("industrial")) typePoints = 8;
+else if (typeText.includes("mixed")) typePoints = 9;
+else if (typeText.includes("residential")) typePoints = 5;
+
+const contractorPoints = (p.general_contractor || p.gc) ? 5 : 0;
+const developerPoints = p.developer ? 5 : 0;
+const permitPoints = p.permit_number ? 3 : 0;
+const addressPoints = p.street_address ? 2 : 0;
+
+const freshDate = p.last_verified || p.created_at;
+let freshnessPoints = 0;
+
+if (freshDate) {
+  const ageDays =
+    (Date.now() - new Date(freshDate).getTime()) / (1000 * 60 * 60 * 24);
+
+  if (ageDays <= 30) freshnessPoints = 12;
+  else if (ageDays <= 90) freshnessPoints = 8;
+  else if (ageDays <= 180) freshnessPoints = 4;
 }
 
+const locationPoints =
+  Number.isFinite(Number(p.lat)) &&
+  Number.isFinite(Number(p.lon))
+    ? 5
+    : 0;
+
+const sourcePoints =
+  p.source && p.source !== "Unknown source"
+    ? 5
+    : 0;
+
+const teamCompletenessPoints =
+  (p.developer && (p.general_contractor || p.gc))
+    ? 3
+    : 0;
+
+const knownPoints =
+  valuePoints +
+  stagePoints +
+  typePoints +
+  contractorPoints +
+  developerPoints +
+  permitPoints +
+  addressPoints +
+  freshnessPoints +
+  locationPoints +
+  sourcePoints +
+  teamCompletenessPoints;
+
+const basePoints = Math.max(0, score - knownPoints);
+
+let opportunityLabel = "WATCH";
+let opportunityText =
+  "This project may be worth monitoring as more information becomes available.";
+
+if (score >= 90) {
+  opportunityLabel = "HOT";
+  opportunityText =
+    "Top-priority opportunity. Strong project signals indicate this lead deserves immediate attention.";
+} else if (score >= 80) {
+  opportunityLabel = "STRONG";
+  opportunityText =
+    "Strong opportunity. Review the project team, permit details, and timing for outreach.";
+} else if (score >= 65) {
+  opportunityLabel = "WATCH";
+  opportunityText =
+    "Good developing opportunity. Monitor the project and watch for new activity.";
+} else {
+  opportunityLabel = "LOW";
+}
+  document.getElementById("modal")?.remove();
+
+  document.body.insertAdjacentHTML("beforeend", `
+    <div class="modal" id="modal">
+      <div class="modalbox">
+
+        <button
+          class="close"
+          onclick="document.getElementById('modal').remove()"
+        >
+          ×
+        </button>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+          <span class="tag">${esc(p.type || "Project")}</span>
+          <span class="tag">${esc(p.stage || "Unknown stage")}</span>
+        </div>
+
+        <h1 style="margin-bottom:6px;">
+          ${esc(p.name || "Unnamed project")}
+        </h1>
+
+        <div class="muted" style="font-size:16px;">
+          ${esc(location || p.city || "Location unavailable")}
+        </div>
+
+        <div class="statline" style="margin-top:20px;">
+          <div class="stat">
+            <small>Estimated value</small>
+            <b>${money(p.value)}</b>
+          </div>
+
+          <div class="stat">
+            <small>Units</small>
+            <b>${p.units || "—"}</b>
+          </div>
+
+         <div class="stat">
+  <small>Opportunity score</small>
+
+  <b style="font-size:20px;">
+    ${score}/100
+  </b>
+
+  <div style="
+    margin-top:6px;
+    font-size:12px;
+    font-weight:800;
+  ">
+    ${opportunityLabel}
+  </div>
+</div>
+
+          <div class="stat">
+            <small>Permit number</small>
+            <b>${esc(p.permit_number || "—")}</b>
+          </div>
+        </div>
+<div class="panel" style="margin-top:14px;">
+  <h3 style="margin-bottom:12px;">Why this score?</h3>
+
+  <div style="
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:8px;
+  ">
+
+    <div class="stat">
+      <small>Project value</small>
+      <b>+${valuePoints}</b>
+    </div>
+
+    <div class="stat">
+      <small>Project stage</small>
+      <b>+${stagePoints}</b>
+    </div>
+
+    <div class="stat">
+      <small>Project type</small>
+      <b>+${typePoints}</b>
+    </div>
+
+    <div class="stat">
+      <small>Contractor identified</small>
+      <b>+${contractorPoints}</b>
+    </div>
+
+    <div class="stat">
+      <small>Developer identified</small>
+      <b>+${developerPoints}</b>
+    </div>
+
+    <div class="stat">
+      <small>Permit data</small>
+      <b>+${permitPoints}</b>
+    </div>
+
+    <div class="stat">
+      <small>Address data</small>
+      <b>+${addressPoints}</b>
+    </div>
+<div class="stat">
+  <small>Data freshness</small>
+  <b>+${freshnessPoints}</b>
+</div>
+
+<div class="stat">
+  <small>Location quality</small>
+  <b>+${locationPoints}</b>
+</div>
+
+<div class="stat">
+  <small>Source quality</small>
+  <b>+${sourcePoints}</b>
+</div>
+
+<div class="stat">
+  <small>Team completeness</small>
+  <b>+${teamCompletenessPoints}</b>
+</div>
+
+<div class="stat">
+  <small>Other signals</small>
+  <b>+${basePoints}</b>
+</div>
+  
+  </div>
+
+  <div style="
+    margin-top:14px;
+    padding-top:12px;
+    border-top:1px solid rgba(255,255,255,.1);
+  ">
+    <b>${opportunityLabel}</b>
+    <div class="muted" style="margin-top:5px;">
+      ${opportunityText}
+    </div>
+  </div>
+</div>
+        <div class="grid" style="margin-top:18px;">
+
+          <div class="panel">
+            <h3>Project team</h3>
+
+            <p>
+              <b>Developer / Owner</b><br>
+              ${esc(p.developer || "Not identified yet")}
+            </p>
+
+            <p>
+              <b>General contractor</b><br>
+              ${esc(p.gc || "Not identified yet")}
+            </p>
+          </div>
+
+          <div class="panel">
+            <h3>Project intelligence</h3>
+
+            <p>
+              <b>Project type</b><br>
+              ${esc(p.type || "Unknown")}
+            </p>
+
+            <p>
+              <b>Current stage</b><br>
+              ${esc(p.stage || "Unknown")}
+            </p>
+
+            <p>
+              <b>Source</b><br>
+              ${esc(p.source || "Unknown source")}
+            </p>
+          </div>
+
+        </div>
+
+        <div class="panel" style="margin-top:14px;">
+          <h3>Location</h3>
+
+          <p>
+            ${esc(location || "Address information not available")}
+          </p>
+        </div>
+
+        <div class="panel" style="margin-top:14px;">
+          <h3>Why pursue this project?</h3>
+
+          <p>${esc(opportunityText)}</p>
+        </div>
+
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;">
+          <button class="btn primary" onclick="toggleSave('${p.id}')">${isSaved ? "Saved" : "Save project"}</button>
+          <button class="btn secondary" onclick="addProjectToPipeline('${p.id}');document.getElementById('modal')?.remove()">Add to pipeline</button>
+          <button class="btn secondary" onclick="openProjectIntelligence('${p.id}',${JSON.stringify(projectIdentity(p))})">Project intelligence</button>
+          <button class="btn secondary" onclick="openScopeBuilder('${p.id}',${JSON.stringify(p.name || "Project")})">Build scope</button>
+          <button class="btn secondary" onclick="BuildScoutProjectDocuments.open('${p.id}',${JSON.stringify(p.name || "Project")})">Plans & Specs</button>
+          <button class="btn primary" onclick="BuildScoutCRM.open('${p.id}');document.getElementById('modal')?.remove()">Sales CRM</button>
+          <button class="btn secondary" onclick="showProjectOnMap('${p.id}')">Show on map</button>
+        </div>
+      </div>
+    </div>
+  `);
+}
 async function toggleSave(id){
   try{
     const userId=currentSession?.user?.id;
@@ -1158,8 +1432,10 @@ async function openScopeBuilder(projectId, projectName){
 window.viewProject=viewProject;
 window.toggleSave=toggleSave;
 window.addPipeline=addPipeline;
-window.openProjectIntelligence=openProjectIntelligence;
 window.addProjectToPipeline=addProjectToPipeline;
+window.openProjectIntelligence=openProjectIntelligence;
+window.openScopeBuilder=openScopeBuilder;
+window.showProjectOnMap=showProjectOnMap;
 
 // Start the BuildScout application after all runtime scripts are loaded.
 bootBuildScout();
