@@ -3,7 +3,7 @@
   const esc=v=>String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
   const clean=v=>String(v||"").trim();
   function badge(confidence){const c=clean(confidence)||"unknown";return `<span class="intel-confidence ${esc(c)}">${esc(c.replace("-"," "))}</span>`;}
-  async function open(projectId,projectName){
+  async function open(projectId,projectName,projectData){
     const old=document.getElementById("buildScoutIntelligenceModal");if(old)old.remove();
     const modal=document.createElement("div");modal.id="buildScoutIntelligenceModal";modal.className="intel-modal";
     modal.innerHTML=`<div class="intel-box"><button class="close" onclick="BuildScoutIntelligence.close()">×</button><div class="bs-eyebrow">VERIFIED PROJECT INTELLIGENCE</div><h2>${esc(projectName||"Project")}</h2><div id="intelBody" class="muted">Loading project team, contacts and source evidence…</div></div>`;
@@ -17,7 +17,22 @@
         <section class="intel-section"><div class="intel-title"><h3>Decision makers</h3><span>Contact data remains tied to source evidence</span></div>${contacts.length?`<div class="intel-list">${contacts.map(x=>`<article><div><small>${esc(x.title||"Contact")}</small><b>${esc(x.full_name)}</b><p>${esc([x.email,x.phone].filter(Boolean).join(" · "))}</p></div>${badge(x.confidence)}</article>`).join("")}</div>`:`<div class="intel-empty">No verified decision-maker contacts yet. This company is eligible for source-backed contact research; BuildScout will not guess a person or email.</div>`}</section>
         <section class="intel-section"><div class="intel-title"><h3>Plans & specifications</h3><button class="btn secondary" onclick="BuildScoutProjectDocuments.open('${projectId}',${JSON.stringify(projectName||"Project")})">${docs.length?`Open ${docs.length} document${docs.length===1?"":"s"}`:"Open document center"}</button></div><div class="intel-empty">${docs.length?"Authorized/public project documents are available in the document center.":"No authorized/public plans are attached yet."}</div></section>
         <section class="intel-section"><div class="intel-title"><h3>Source evidence</h3><span>${sources.length} signal${sources.length===1?"":"s"}</span></div>${sources.length?`<div class="intel-list">${sources.map(x=>`<article><div><small>${esc(x.source_type.replaceAll("_"," "))}</small><b>${esc(x.source_name)}</b><p>${esc(x.source_record_id||"")}</p></div>${badge(x.confidence)}</article>`).join("")}</div>`:`<div class="intel-empty">No structured source evidence has been attached yet.</div>`}</section>`;
-    }catch(error){console.error(error);document.getElementById("intelBody").innerHTML=`<div class="intel-empty">Project intelligence tables are not ready yet. Run the Phase 24 Supabase migration, then try again.</div>`;}
+    }catch(error){
+      console.error("Project Intelligence data load failed:",error);
+      const p=projectData||{};
+      const body=document.getElementById("intelBody");
+      if(body){
+        body.innerHTML=`
+          <div class="intel-summary"><div><small>Companies</small><b>${(p.general_contractor||p.developer)?1:0}</b></div><div><small>Contacts</small><b>0</b></div><div><small>Plans & docs</small><b>${Number(p.document_count||0)}</b></div><div><small>Source signals</small><b>${p.source?1:0}</b></div></div>
+          <section class="intel-section"><div class="intel-title"><h3>Project team</h3><span>Current verified project record</span></div><div class="intel-list">
+            ${p.developer?`<article class="intel-company"><div><small>Developer / Owner</small><b>${esc(p.developer)}</b><p>Stored on the verified project record.</p></div>${badge("source-backed")}</article>`:""}
+            ${p.general_contractor?`<article class="intel-company"><div><small>General Contractor</small><b>${esc(p.general_contractor)}</b><p>Stored on the verified project record.</p></div>${badge("source-backed")}</article>`:""}
+            ${(!p.developer&&!p.general_contractor)?`<div class="intel-empty">No project team company is identified in the current project record yet.</div>`:""}
+          </div></section>
+          <section class="intel-section"><div class="intel-title"><h3>Project facts</h3><span>Source record</span></div><div class="intel-list"><article><div><small>Project type</small><b>${esc(p.type||"Unknown")}</b><p>Stage: ${esc(p.stage||"Unknown")} · Source: ${esc(p.source||"Unknown")}</p></div>${badge("source-backed")}</article></div></section>
+          <section class="intel-section"><div class="intel-title"><h3>Research status</h3></div><div class="intel-empty">The Phase 24 intelligence tables are not available in this database yet, so BuildScout is showing the verified project record instead of failing silently. Once the Phase 24 migration is applied, source-backed company and contact research will appear here.</div></section>`;
+      }
+    }
   }
   function close(){document.getElementById("buildScoutIntelligenceModal")?.remove();}
   window.BuildScoutIntelligence={open,close};
