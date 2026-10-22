@@ -342,24 +342,31 @@ async function startBuildScout(session = null) {
 
   const userId = currentSession.user.id;
 
-  const [savedRows, pipelineRows] = await Promise.all([
-    BuildScoutBackend.getSavedProjects(userId),
-    BuildScoutBackend.getPipeline(userId)
-  ]);
-
-  saved = savedRows.map(row => String(row.project_id));
+  // Load optional user-state independently so a permissions/data problem
+  // cannot make a valid authentication session look like a failed login.
+  try {
+    const savedRows = await BuildScoutBackend.getSavedProjects(userId);
+    saved = savedRows.map(row => String(row.project_id));
+  } catch (error) {
+    saved = [];
+    console.warn("Saved projects could not be loaded; continuing without saved state:", error);
+  }
 
   pipeline = {};
   pipelineDetails = {};
 
-  pipelineRows.forEach(row => {
-    pipeline[row.project_id] = row.stage;
-
-    pipelineDetails[row.project_id] = {
-      notes: row.notes || "",
-      follow_up_at: row.follow_up_at || null
-    };
-  });
+  try {
+    const pipelineRows = await BuildScoutBackend.getPipeline(userId);
+    pipelineRows.forEach(row => {
+      pipeline[row.project_id] = row.stage;
+      pipelineDetails[row.project_id] = {
+        notes: row.notes || "",
+        follow_up_at: row.follow_up_at || null
+      };
+    });
+  } catch (error) {
+    console.warn("Pipeline could not be loaded; continuing without pipeline state:", error);
+  }
 
   await loadSupabaseProjects();
 }
@@ -443,8 +450,8 @@ async function loadSupabaseProjects() {
       id: p.id,
       name: p.name,
       city: p.city,
-      lat: p.latitude,
-      lon: p.longitude,
+      lat: sanitizeProjectCoordinate(p, "lat"),
+      lon: sanitizeProjectCoordinate(p, "lon"),
       type: p.project_type,
       stage: p.stage,
       value: Number(p.estimated_value || 0),
@@ -491,6 +498,25 @@ function persist(){
   // Imported data is device-local. Saved projects and pipeline state are
   // account data and are persisted through BuildScoutBackend/Supabase.
   localStorage.setItem("bs_imported",JSON.stringify(imported));
+}
+
+// Prevent obviously corrupt coordinates from placing U.S. projects in Africa,
+// the ocean, or another continent. We keep the project visible in lists and
+// allow the detail-map fallback to geocode a selected address when needed.
+function sanitizeProjectCoordinate(project, axis){
+  const lat=Number(project?.latitude);
+  const lon=Number(project?.longitude);
+  if(!Number.isFinite(lat)||!Number.isFinite(lon)) return null;
+  if(Math.abs(lat)>90||Math.abs(lon)>180) return null;
+
+  const city=String(project?.city||"").toLowerCase();
+  const state=String(project?.state||project?.state_code||"").toLowerCase();
+  const isKnownUSCity=
+    /(^|, )?(dallas|fort worth|austin|chicago|new york|seattle|houston|arlington|plano|frisco|irving|garland|mckinney|denver|phoenix|san antonio|san diego|los angeles|miami|boston|atlanta|nashville|charlotte|detroit|tampa|orlando)/.test(city) ||
+    /^(tx|il|ny|wa|co|az|ca|fl|ga|tn|nc|mi|ma)$/.test(state);
+
+  if(isKnownUSCity && (lat<24 || lat>50 || lon<-125 || lon>-66)) return null;
+  return axis==="lat" ? lat : lon;
 }
 function money(n){if(!n)return "—"; return n>=1e6?`$${(n/1e6).toFixed(1)}M`:`$${Number(n).toLocaleString()}`}
 function calculateOpportunityScore(p){
@@ -740,6 +766,21 @@ async function focusProjectOnMap(id){
   }
 
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return false;
+
+  // Never persist a coordinate that fails the same plausibility check used
+  // when projects are loaded from Supabase.
+  if (sanitizeProjectCoordinate({
+    city: project.city,
+    latitude: lat,
+    longitude: lon
+  }, "lat") === null ||
+      sanitizeProjectCoordinate({
+        city: project.city,
+        latitude: lat,
+        longitude: lon
+      }, "lon") === null) {
+    return false;
+  }
 
   project.lat = lat;
   project.lon = lon;
