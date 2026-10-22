@@ -487,6 +487,22 @@ document_count: Number(documentCounts[String(p.id)] || 0)
     console.log("Loaded Supabase projects:", supabaseProjects.length);
   } catch (error) {
     console.error("Failed to load Supabase projects:", error);
+
+    // Never silently render an empty workspace when the authenticated
+    // project query failed. Show the real database error so it can be
+    // diagnosed instead of making valid data look like it disappeared.
+    projects = [];
+    shell();
+    const main = document.getElementById("main");
+    if (main) {
+      main.innerHTML = `
+        <section class="panel" style="max-width:900px;margin:40px auto;">
+          <h1>Unable to load projects</h1>
+          <p class="muted">Your account is signed in, but BuildScout could not read the project dataset.</p>
+          <p><strong>Database error:</strong> ${esc(error?.message || String(error))}</p>
+          <p class="muted">No project data was deleted by this screen. Refresh after the database access issue is fixed.</p>
+        </section>`;
+    }
   }
 }
 let page="dashboard", query="", selectedType="All", selectedStage="All", minValue=0;
