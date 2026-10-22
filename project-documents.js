@@ -103,58 +103,5 @@
     finally { if (button) button.disabled = false; }
   }
 
-  function normalize(value) { return String(value || "").replace(/\s+/g, " ").trim().toLowerCase(); }
-
-  function stateFromCurrentModal() {
-    try {
-      const modal = document.querySelector(".modal");
-      if (!modal || typeof projects === "undefined" || !Array.isArray(projects)) return null;
-
-      // Project detail titles are rendered as H1 in the current UI. Keep H2/H3 as fallbacks.
-      const heading = modal.querySelector("h1, h2, h3");
-      const title = normalize(heading && heading.textContent);
-      if (title) {
-        const exact = projects.find(p => normalize(p.name) === title);
-        if (exact) return exact.id;
-      }
-
-      // Fallback: identify the project by permit number shown in the detail modal.
-      const modalText = normalize(modal.textContent);
-      const byPermit = projects.find(p => {
-        const permit = normalize(p.permit_number || p.permitNumber || p.permit);
-        return permit && modalText.includes(permit);
-      });
-      if (byPermit) return byPermit.id;
-
-      // Final fallback: match the visible project address.
-      const byAddress = projects.find(p => {
-        const address = normalize(p.address || p.project_address || p.location);
-        return address && address.length > 8 && modalText.includes(address);
-      });
-      return byAddress ? byAddress.id : null;
-    } catch (_) { return null; }
-  }
-
-  function injectButton() {
-    try {
-      const projectModal = document.querySelector(".modal");
-      if (!projectModal || projectModal.id === "buildScoutDocumentModal" || document.getElementById("buildScoutPlansButton")) return;
-      const projectId = stateFromCurrentModal();
-      if (!projectId) return;
-      const project = typeof projects !== "undefined" ? projects.find(p => String(p.id) === String(projectId)) : null;
-      const actions = projectModal.querySelector(".modal-actions") || projectModal.querySelector(".actions") || Array.from(projectModal.querySelectorAll("button")).find(b => /save project|saved|add to pipeline|show on map/i.test(b.textContent || ""))?.parentElement;
-      if (!actions) return;
-      const button = document.createElement("button");
-      button.id = "buildScoutPlansButton"; button.type = "button"; button.className = "btn"; button.textContent = "Plans & Specs";
-      button.onclick = () => open(projectId, project && project.name);
-      actions.appendChild(button);
-    } catch (error) { console.warn("Could not mount Plans & Specs button:", error); }
-  }
-
-  const observer = new MutationObserver(() => requestAnimationFrame(injectButton));
-  observer.observe(document.documentElement, { childList: true, subtree: true });
-  document.addEventListener("DOMContentLoaded", () => requestAnimationFrame(injectButton));
-  requestAnimationFrame(injectButton);
-
   window.BuildScoutProjectDocuments = { open, close, openDocument, uploadSelected, injectButton };
 })();
