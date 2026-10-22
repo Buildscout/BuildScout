@@ -181,6 +181,7 @@ function renderAuthScreen(message = "") {
         <button
           id="authSubmit"
           type="button"
+          onclick="handleAuthSubmit()"
           style="
             width:100%;
             border:0;
@@ -276,8 +277,17 @@ function escapeAuthText(value) {
 }
 
 async function handleAuthSubmit() {
-  const email = document.getElementById("authEmail").value.trim();
-  const password = document.getElementById("authPassword").value;
+  const button = document.getElementById("authSubmit");
+  if (button?.dataset.busy === "1") return;
+
+  const email = document.getElementById("authEmail")?.value.trim() || "";
+  const password = document.getElementById("authPassword")?.value || "";
+
+  if (button) {
+    button.dataset.busy = "1";
+    button.disabled = true;
+    button.textContent = authMode === "signup" ? "Creating account…" : "Signing in…";
+  }
 
   if (!email || !password) {
     renderAuthScreen("Enter your email and password.");
