@@ -7,22 +7,19 @@ window.BuildScoutBackend = (() => {
   async function signUp(email,password,firstName="",lastName="") { if(!client)init(); const {data,error}=await client.auth.signUp({email,password,options:{data:{first_name:firstName,last_name:lastName,full_name:`${firstName} ${lastName}`.trim()}}}); if(error)throw error; return data; }
   async function signIn(email,password){
     if(!client)init();
+
+    // signInWithPassword already establishes and persists the Supabase
+    // session. Do not immediately call setSession/getUser again here:
+    // doing so can contend with Supabase's auth lock and leave the UI stuck
+    // on "Signing in…" even though the credentials were accepted.
     const {data,error}=await client.auth.signInWithPassword({email,password});
     if(error)throw error;
-    if(!data?.session?.access_token||!data?.session?.refresh_token){
+
+    if(!data?.session?.access_token||!data?.session?.refresh_token||!data?.user?.id){
       throw new Error("Sign-in succeeded but no authenticated session was returned.");
     }
-    const {data:sessionData,error:sessionError}=await client.auth.setSession({
-      access_token:data.session.access_token,
-      refresh_token:data.session.refresh_token
-    });
-    if(sessionError)throw sessionError;
-    const {data:userData,error:userError}=await client.auth.getUser();
-    if(userError)throw userError;
-    if(!userData?.user||userData.user.id!==sessionData?.session?.user?.id){
-      throw new Error("Unable to confirm the authenticated BuildScout session.");
-    }
-    return { ...data, session: sessionData.session, user: userData.user };
+
+    return data;
   }
   async function signOut(){if(!client)return;const{error}=await client.auth.signOut();if(error)throw error;}
   async function getSession(){if(!client)init();const{data,error}=await client.auth.getSession();if(error)throw error;return data.session;}
