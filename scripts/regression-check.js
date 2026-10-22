@@ -71,3 +71,12 @@ for (const signature of requiredBackendMethods) {
 }
 
 console.log("BuildScout regression contract passed.");
+
+
+const appIndex = index.indexOf('<script src="app.js');
+const featureOrder = ["scope-builder.js","project-intelligence.js","project-documents.js","crm-ui.js"].map(file => index.indexOf(file));
+if (appIndex < 0 || featureOrder.some(i => i < 0 || i > appIndex)) throw new Error("Feature modules must load before app.js.");
+if (index.includes("project-documents-button-fix.js")) throw new Error("Obsolete duplicate Plans & Specs injector is still loaded.");
+if (!app.includes("latitude: p.latitude ?? p.lat") || !app.includes("longitude: p.longitude ?? p.lon")) throw new Error("Project coordinate normalization is missing.");
+if (!app.includes("lon > -50") || !app.includes("lon < -170")) throw new Error("Broad invalid-coordinate guard is missing.");
+if (!app.includes("ensureFeatureModule")) throw new Error("Feature runtime loader guard is missing.");
