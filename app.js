@@ -486,8 +486,16 @@ async function loadSupabaseProjects() {
       id: p.id,
       name: p.name,
       city: p.city,
-      lat: sanitizeProjectCoordinate(p, "lat"),
-      lon: sanitizeProjectCoordinate(p, "lon"),
+      lat: sanitizeProjectCoordinate({
+        ...p,
+        latitude: p.latitude ?? p.lat,
+        longitude: p.longitude ?? p.lon
+      }, "lat"),
+      lon: sanitizeProjectCoordinate({
+        ...p,
+        latitude: p.latitude ?? p.lat,
+        longitude: p.longitude ?? p.lon
+      }, "lon"),
       type: p.project_type,
       stage: p.stage,
       value: Number(p.estimated_value || 0),
@@ -1128,10 +1136,20 @@ async function focusProjectOnMap(id){
   const project = projects.find(p => String(p.id) === String(id));
   if (!project || !map || !markerLayer) return false;
 
-  let lat = Number(project.lat);
-  let lon = Number(project.lon);
+  let lat = Number(project.lat ?? project.latitude);
+  let lon = Number(project.lon ?? project.longitude);
 
   const city = String(project.city || "").toLowerCase();
+  const state = String(project.state || project.state_code || "").toLowerCase();
+  const isLikelyUS =
+    /(^|, )?(dallas|fort worth|austin|chicago|houston|arlington|plano|frisco|irving|garland|mckinney|san antonio|detroit)/.test(city) ||
+    /^(tx|il|mi|fl|ca|ny|ga|co|az|tn|nc|wa|ma)$/.test(state);
+
+  // Never accept the null-island coordinate for a real U.S. project.
+  if (isLikelyUS && Math.abs(lat) < 5 && Math.abs(lon) < 5) {
+    lat = NaN;
+    lon = NaN;
+  }
   const address = [project.street_address, project.city, project.zip_code].filter(Boolean).join(", ");
   const austinCoordsSuspect =
     city.includes("austin") &&
@@ -1325,13 +1343,22 @@ function initMap(ps) {
   const mapProjects = focusId
     ? ps.filter(p => String(p.id) === String(focusId))
     : ps;
+  const configuredCenter = Array.isArray(CFG?.mapCenter) &&
+    Number.isFinite(Number(CFG.mapCenter[0])) &&
+    Number.isFinite(Number(CFG.mapCenter[1])) &&
+    Math.abs(Number(CFG.mapCenter[0])) >= 5 &&
+    Math.abs(Number(CFG.mapCenter[0])) <= 90 &&
+    Math.abs(Number(CFG.mapCenter[1])) <= 180
+      ? [Number(CFG.mapCenter[0]), Number(CFG.mapCenter[1])]
+      : [32.7767, -96.7970];
+
   map = L.map("map", {
     zoomControl: true,
     minZoom: 3,
     maxZoom: 18
   }).setView(
-    CFG.mapCenter,
-    CFG.mapZoom
+    configuredCenter,
+    Number.isFinite(Number(CFG?.mapZoom)) ? Number(CFG.mapZoom) : 9
   );
   L.tileLayer(
     "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
@@ -1436,6 +1463,19 @@ window.addProjectToPipeline=addProjectToPipeline;
 window.openProjectIntelligence=openProjectIntelligence;
 window.openScopeBuilder=openScopeBuilder;
 window.showProjectOnMap=showProjectOnMap;
+
+// Core feature runtime diagnostics. These are intentionally lightweight and
+// only run after all feature modules have loaded.
+function buildScoutFeatureHealth(){
+  return {
+    intelligence: typeof window.BuildScoutIntelligence?.open === "function",
+    scope: typeof window.BuildScoutScope?.open === "function",
+    documents: typeof window.BuildScoutProjectDocuments?.open === "function",
+    crm: typeof window.BuildScoutCRM?.open === "function",
+    map: typeof window.showProjectOnMap === "function"
+  };
+}
+window.buildScoutFeatureHealth=buildScoutFeatureHealth;
 
 // Start the BuildScout application after all runtime scripts are loaded.
 bootBuildScout();
