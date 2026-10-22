@@ -103,5 +103,5 @@
     finally { if (button) button.disabled = false; }
   }
 
-  window.BuildScoutProjectDocuments = { open, close, openDocument, uploadSelected, injectButton };
+  window.BuildScoutProjectDocuments = { open, close, openDocument, uploadSelected };
 })();
