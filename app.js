@@ -1394,11 +1394,10 @@ function initMap(ps) {
     return lat !== null && lon !== null;
   })
  .forEach(p => {
-  const marker =
-    const safeLat = sanitizeProjectCoordinate({ ...p, latitude: p.lat, longitude: p.lon }, "lat");
-    const safeLon = sanitizeProjectCoordinate({ ...p, latitude: p.lat, longitude: p.lon }, "lon");
-    if (safeLat === null || safeLon === null) return;
-    L.marker([safeLat, safeLon]).addTo(markerLayer);
+  const safeLat = sanitizeProjectCoordinate({ ...p, latitude: p.lat, longitude: p.lon }, "lat");
+  const safeLon = sanitizeProjectCoordinate({ ...p, latitude: p.lat, longitude: p.lon }, "lon");
+  if (safeLat === null || safeLon === null) return;
+  const marker = L.marker([safeLat, safeLon]).addTo(markerLayer);
 
   projectMarkers[p.id] = marker;
 
