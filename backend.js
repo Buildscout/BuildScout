@@ -87,12 +87,29 @@ window.BuildScoutBackend = (() => {
     }
     return savedRows;
   }
-  async function getSavedProjects(userId){if(!client)init();const{data,error}=await client.from("saved_projects").select("project_id").eq("user_id",userId);if(error)throw error;return data||[];}
-  async function saveProject(userId,projectId){if(!client)init();const{data,error}=await client.from("saved_projects").upsert({user_id:userId,project_id:projectId});if(error)throw error;return data;}
-  async function unsaveProject(userId,projectId){if(!client)init();const{error}=await client.from("saved_projects").delete().eq("user_id",userId).eq("project_id",projectId);if(error)throw error;}
-  async function getPipeline(userId){if(!client)init();const{data,error}=await client.from("pipeline_items").select("*").eq("user_id",userId);if(error)throw error;return data||[];}
-  async function removePipelineItem(userId,projectId){if(!client)init();const{error}=await client.from("pipeline_items").delete().eq("user_id",userId).eq("project_id",projectId);if(error)throw error;}
-  async function updatePipeline(userId,projectId,stage,notes=undefined,followUpAt=undefined,crm={}){if(!client)init();const updates={user_id:userId,project_id:projectId,stage,updated_at:new Date().toISOString()};if(notes!==undefined)updates.notes=notes;if(followUpAt!==undefined)updates.follow_up_at=followUpAt||null;["opportunity_value","probability","expected_close_date","next_action","lost_reason"].forEach(k=>{if(crm[k]!==undefined)updates[k]=crm[k]||null;});const{data,error}=await client.from("pipeline_items").upsert(updates).select();if(error)throw error;return data;}
+  async function userStateRequest(body={}, query=""){
+    const session=await getSession();
+    const token=session?.access_token;
+    if(!token)throw new Error("No authenticated session token is available.");
+    const response=await fetch("/api/user-state"+query,{
+      method:body&&Object.keys(body).length?"POST":"GET",
+      headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json"},
+      body:body&&Object.keys(body).length?JSON.stringify(body):undefined
+    });
+    let payload=null;try{payload=await response.json();}catch(_){}
+    if(!response.ok)throw new Error(payload?.message||payload?.error||`User state API returned HTTP ${response.status}.`);
+    return payload?.data||[];
+  }
+  async function getSavedProjects(userId){const rows=await userStateRequest({}, "?type=saved");return rows;}
+  async function saveProject(userId,projectId){return userStateRequest({type:"saved",action:"save",projectId});}
+  async function unsaveProject(userId,projectId){await userStateRequest({type:"saved",action:"remove",projectId});}
+  async function getPipeline(userId){return userStateRequest({}, "?type=pipeline");}
+  async function removePipelineItem(userId,projectId){await userStateRequest({type:"pipeline",action:"remove",projectId});}
+  async function updatePipeline(userId,projectId,stage,notes=undefined,followUpAt=undefined,crm={}){
+    const body={type:"pipeline",action:"upsert",projectId,stage,notes,follow_up_at:followUpAt||null};
+    ["opportunity_value","probability","expected_close_date","next_action","lost_reason"].forEach(k=>{if(crm[k]!==undefined)body[k]=crm[k]||null;});
+    return userStateRequest(body);
+  }
   async function getContacts(userId,projectId){if(!client)init();const{data,error}=await client.from("crm_contacts").select("*").eq("user_id",userId).eq("project_id",projectId).order("is_primary",{ascending:false}).order("created_at",{ascending:true});if(error)throw error;return data||[];}
   async function saveContact(contact){if(!client)init();const row={...contact,updated_at:new Date().toISOString()};const query=row.id?client.from("crm_contacts").update(row).eq("id",row.id).eq("user_id",row.user_id):client.from("crm_contacts").insert(row);const{data,error}=await query.select().single();if(error)throw error;return data;}
   async function deleteContact(userId,contactId){if(!client)init();const{error}=await client.from("crm_contacts").delete().eq("id",contactId).eq("user_id",userId);if(error)throw error;}
