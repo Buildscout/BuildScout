@@ -6,7 +6,9 @@
 -- to rows whose user_id matches auth.uid().
 
 grant select, insert, update, delete on table public.saved_projects to authenticated;
+grant select, insert, update, delete on table public.saved_projects to service_role;
 grant select, insert, update, delete on table public.pipeline_items to authenticated;
+grant select, insert, update, delete on table public.pipeline_items to service_role;
 
 alter table public.saved_projects enable row level security;
 alter table public.pipeline_items enable row level security;
