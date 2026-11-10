@@ -46,7 +46,7 @@ export default async function handler(req, res) {
 
     if (req.method === "GET" || action === "list") {
       const rows = await supabase(req, table, {
-        query: { select: "*", user_id: `eq.${user.id}`, order: "updated_at.desc.nullslast,created_at.desc.nullslast" }
+        query: { select: "*", user_id: `eq.${user.id}`, order: "updated_at.desc.nullslast" }
       });
       return res.status(200).json({ data: rows || [] });
     }
